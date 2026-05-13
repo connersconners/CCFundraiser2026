@@ -277,9 +277,17 @@ const SPONSORS = [
 let allWorks = [], currentWork = null, currentFilter = 'all', commitType = '';
 let galleryMode = 'soft_launch', isVip = false, countdownTimer = null;
 
+// VIP token state (step 3, frontend token detection)
+let vipToken = '';
+let tokenValid = false;
+let vipInfo = null;
+
 // Detect VIP mode from URL param
 const urlParams = new URLSearchParams(window.location.search);
 isVip = urlParams.get('vip') === 'true';
+
+// Detect VIP token from URL (step 3)
+vipToken = urlParams.get('token') || '';
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('footer-year').textContent = new Date().getFullYear();
@@ -316,11 +324,14 @@ function renderSponsors() {
 
 async function loadWorks() {
   try {
-    const res = await fetch(SHEET_API_URL + '?action=getWorks');
+    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '');
+    const res = await fetch(url);
     const data = await res.json();
     if (data.works && data.works.length > 0) {
       allWorks = data.works.filter(w => w.id && (w.artist || w.title));
       if (data.mode) { galleryMode = data.mode; applyGalleryMode(); }
+      tokenValid = data.tokenValid === true;
+      vipInfo = data.vipInfo || null;
       renderGrid();
       handleHashLink();
       return;
@@ -385,10 +396,14 @@ function handleHashLink() {
 
 async function pollStatus() {
   try {
-    const res = await fetch(SHEET_API_URL + '?action=getWorks');
+    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '');
+    const res = await fetch(url);
     const data = await res.json();
     if (!data.works) return;
     if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderGrid(); }
+    // Re-validate token on every poll (curator may have revoked mid-session)
+    tokenValid = data.tokenValid === true;
+    vipInfo = data.vipInfo || null;
     const fresh = data.works.filter(w => w.id && (w.artist || w.title));
     fresh.forEach(fw => {
       const existing = allWorks.find(w => w.id === fw.id);

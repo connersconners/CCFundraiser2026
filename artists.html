@@ -229,6 +229,13 @@ const POLL_INTERVAL = 30000;
 
 let allWorks = [], currentWork = null, commitType = '';
 
+// VIP token state (step 3, frontend token detection)
+let vipToken = '';
+let tokenValid = false;
+let vipInfo = null;
+const urlParams = new URLSearchParams(window.location.search);
+vipToken = urlParams.get('token') || '';
+
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('footer-year').textContent = new Date().getFullYear();
   loadWorks();
@@ -242,10 +249,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadWorks() {
   try {
-    const res = await fetch(SHEET_API_URL + '?action=getWorks');
+    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '');
+    const res = await fetch(url);
     const data = await res.json();
     if (data.works && data.works.length > 0) {
       allWorks = data.works.filter(w => w.id && (w.artist || w.title));
+      tokenValid = data.tokenValid === true;
+      vipInfo = data.vipInfo || null;
       renderArtists();
       return;
     }
@@ -323,9 +333,13 @@ function toggleArtist(slug) {
 // Live polling — same logic as index.html
 async function pollStatus() {
   try {
-    const res = await fetch(SHEET_API_URL + '?action=getWorks');
+    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '');
+    const res = await fetch(url);
     const data = await res.json();
     if (!data.works) return;
+    // Re-validate token on every poll (curator may have revoked mid-session)
+    tokenValid = data.tokenValid === true;
+    vipInfo = data.vipInfo || null;
     const fresh = data.works.filter(w => w.id && (w.artist || w.title));
     fresh.forEach(fw => {
       const existing = allWorks.find(w => w.id === fw.id);
