@@ -179,7 +179,8 @@
 
   .mode-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
   .mode-badge { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 10px; border: 1px solid; }
-  .mode-badge-soft_launch { border-color: var(--pending); color: var(--pending); background: var(--pending-bg); }
+  .mode-badge-browse_only { border-color: var(--pending); color: var(--pending); background: var(--pending-bg); }
+  .mode-badge-vip_window { border-color: var(--available); color: var(--available); background: var(--pending-bg); }
   .mode-badge-live { border-color: var(--available); color: var(--available); background: var(--available-bg); }
   .mode-badge-closed { border-color: var(--mid-gray); color: var(--mid-gray); background: var(--light-gray); }
   .mode-btn { font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 12px; border: 1px solid var(--black); background: var(--white); color: var(--black); cursor: pointer; transition: all 0.1s; }
@@ -290,21 +291,29 @@
     <div class="admin-panel" id="panel-mode">
       <div class="admin-panel-header" onclick="toggleAdminPanel('panel-mode')">
         <h3>Gallery mode</h3>
-        <span id="mode-badge-header" class="mode-badge mode-badge-soft_launch">Soft launch</span>
+        <span id="mode-badge-header" class="mode-badge mode-badge-browse_only">Browse only</span>
       </div>
       <div class="admin-panel-body">
         <div class="mode-row">
-          <button class="mode-btn" onclick="setMode('soft_launch')">Soft launch</button>
+          <button class="mode-btn" onclick="setMode('browse_only')">Browse only</button>
+          <button class="mode-btn" onclick="setMode('vip_window')">VIP window</button>
           <button class="mode-btn mode-btn-live" onclick="setMode('live')">Go live</button>
           <button class="mode-btn mode-btn-closed" onclick="setMode('closed')">Close gallery</button>
         </div>
         <div class="schedule-row">
-          <label>Schedule go-live:</label>
-          <input type="datetime-local" class="schedule-input" id="schedule-input">
-          <button class="mode-btn mode-btn-live" onclick="scheduleLaunch()">Schedule</button>
-          <button class="mode-btn" onclick="cancelSchedule()">Cancel schedule</button>
+          <label>Schedule VIP window:</label>
+          <input type="datetime-local" class="schedule-input" id="schedule-vip-window-input">
+          <button class="mode-btn" onclick="scheduleTransition('vip_window')">Schedule</button>
+          <button class="mode-btn" onclick="cancelTransition('vip_window')">Cancel</button>
         </div>
-        <p style="font-size:11px;color:var(--mid-gray);margin-top:10px" id="schedule-status"></p>
+        <p style="font-size:11px;color:var(--mid-gray);margin-top:6px" id="schedule-vip-window-status"></p>
+        <div class="schedule-row">
+          <label>Schedule go-live:</label>
+          <input type="datetime-local" class="schedule-input" id="schedule-live-input">
+          <button class="mode-btn mode-btn-live" onclick="scheduleTransition('live')">Schedule</button>
+          <button class="mode-btn" onclick="cancelTransition('live')">Cancel</button>
+        </div>
+        <p style="font-size:11px;color:var(--mid-gray);margin-top:6px" id="schedule-live-status"></p>
       </div>
     </div>
 
@@ -373,7 +382,7 @@ const AUTO_REFRESH = 15000;
 // Public gallery base URL — update if your GitHub Pages URL changes
 const GALLERY_URL = 'https://jessicaleonardmedia-bit.github.io/CCFundraiser2026/index.html';
 
-let allWorks = [], refreshTimer = null, pendingAction = null, isAdmin = false, allTimers = [], galleryMode = 'soft_launch', allVipOffers = [];
+let allWorks = [], refreshTimer = null, pendingAction = null, isAdmin = false, allTimers = [], galleryMode = 'browse_only', allVipOffers = [];
 
 // ---- AUTH ----
 function attemptLogin() {
@@ -411,7 +420,7 @@ async function loadWorks() {
     if (data.works) {
       allWorks = data.works.filter(w => w.id && (w.artist || w.title));
       allTimers = data.timers || [];
-      galleryMode = data.mode || 'soft_launch';
+      galleryMode = data.mode || 'browse_only';
       renderList(); updateStats(); renderTimerWarnings(); updateModeDisplay();
       if (isAdmin) loadVipOffers();
       document.getElementById('last-updated').textContent =
@@ -699,44 +708,66 @@ async function timerUnpause(workId, queueTimestamp) {
 }
 
 // ---- GALLERY MODE ----
+const MODE_LABELS = {
+  browse_only: 'Browse only',
+  vip_window:  'VIP window',
+  live:        'Live',
+  closed:      'Closed',
+};
+
 function updateModeDisplay() {
-  const labels = { soft_launch: 'Soft launch', live: 'Live', closed: 'Closed' };
   const el = document.getElementById('mode-badge-header');
   if (!el) return;
-  el.textContent = labels[galleryMode] || galleryMode;
+  el.textContent = MODE_LABELS[galleryMode] || galleryMode;
   el.className = 'mode-badge mode-badge-' + galleryMode;
 }
 
 async function setMode(mode) {
-  const labels = { soft_launch: 'soft launch', live: 'live', closed: 'closed' };
-  if (!confirm('Set gallery to ' + (labels[mode]||mode) + '?')) return;
+  const label = (MODE_LABELS[mode] || mode).toLowerCase();
+  if (!confirm('Set gallery to ' + label + '?')) return;
   const res = await fetch(SHEET_API_URL, {
     method: 'POST', headers: {'Content-Type':'text/plain'},
     body: JSON.stringify({ action: 'setGalleryMode', mode, pwd: ADMIN_PASSWORD }),
   });
   const data = await res.json();
-  if (data.success) { galleryMode = mode; updateModeDisplay(); document.getElementById('schedule-status').textContent = ''; }
+  if (data.success) {
+    galleryMode = mode;
+    updateModeDisplay();
+    // Manual mode change cancels both scheduled transitions backend-side; clear UI too
+    const vw = document.getElementById('schedule-vip-window-status');
+    const lv = document.getElementById('schedule-live-status');
+    if (vw) vw.textContent = '';
+    if (lv) lv.textContent = '';
+  }
 }
 
-async function scheduleLaunch() {
-  const val = document.getElementById('schedule-input').value;
+// Schedule a transition. target is 'vip_window' or 'live'.
+async function scheduleTransition(target) {
+  const inputId  = target === 'vip_window' ? 'schedule-vip-window-input'  : 'schedule-live-input';
+  const statusId = target === 'vip_window' ? 'schedule-vip-window-status' : 'schedule-live-status';
+  const val = document.getElementById(inputId).value;
   if (!val) { alert('Please select a date and time.'); return; }
   const iso = new Date(val).toISOString();
   const res = await fetch(SHEET_API_URL, {
     method: 'POST', headers: {'Content-Type':'text/plain'},
-    body: JSON.stringify({ action: 'scheduleGalleryMode', scheduledTime: iso, mode: 'live', pwd: ADMIN_PASSWORD }),
+    body: JSON.stringify({ action: 'scheduleGalleryMode', target, scheduledTime: iso, pwd: ADMIN_PASSWORD }),
   });
   const data = await res.json();
-  if (data.success) document.getElementById('schedule-status').textContent = 'Scheduled: go live at ' + new Date(val).toLocaleString('en-AU');
+  if (data.success) {
+    document.getElementById(statusId).textContent =
+      'Scheduled: switch to ' + (MODE_LABELS[target]||target) + ' at ' + new Date(val).toLocaleString('en-AU');
+  }
 }
 
-async function cancelSchedule() {
+async function cancelTransition(target) {
+  const inputId  = target === 'vip_window' ? 'schedule-vip-window-input'  : 'schedule-live-input';
+  const statusId = target === 'vip_window' ? 'schedule-vip-window-status' : 'schedule-live-status';
   await fetch(SHEET_API_URL, {
     method: 'POST', headers: {'Content-Type':'text/plain'},
-    body: JSON.stringify({ action: 'scheduleGalleryMode', scheduledTime: '', mode: 'live', pwd: ADMIN_PASSWORD }),
+    body: JSON.stringify({ action: 'scheduleGalleryMode', target, scheduledTime: '', pwd: ADMIN_PASSWORD }),
   });
-  document.getElementById('schedule-input').value = '';
-  document.getElementById('schedule-status').textContent = 'Schedule cancelled.';
+  document.getElementById(inputId).value = '';
+  document.getElementById(statusId).textContent = 'Schedule cancelled.';
 }
 
 function toggleAdminPanel(id) {

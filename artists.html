@@ -162,6 +162,8 @@
   Unable to load works from the sheet — check your connection and refresh.
 </div>
 
+<div id="mode-banner" style="display:none;background:#fdf3e3;border-bottom:1px solid #e8c97a;padding:12px 24px;font-size:13px;color:#7a5a00;text-align:center"></div>
+
 <section class="intro">
   <p class="intro-eyebrow">Conners Conners Gallery — Fundraiser 2026</p>
   <h1>Artists</h1>
@@ -253,6 +255,7 @@ const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbwm1RTBH6_pfJgPmz
 const POLL_INTERVAL = 30000;
 
 let allWorks = [], currentWork = null, commitType = '';
+let galleryMode = 'browse_only';
 
 // VIP token state (step 3, frontend token detection)
 let vipToken = '';
@@ -303,6 +306,7 @@ async function loadWorks() {
       allWorks = data.works.filter(w => w.id && (w.artist || w.title));
       tokenValid = data.tokenValid === true;
       vipInfo = data.vipInfo || null;
+      if (data.mode) { galleryMode = data.mode; applyGalleryMode(); }
       maybeShowPolaroid();
       renderArtists();
       return;
@@ -378,6 +382,26 @@ function toggleArtist(slug) {
   document.getElementById('artist-' + slug)?.classList.toggle('expanded');
 }
 
+// Phase-aware UI (step 5)
+function applyGalleryMode() {
+  const banner = document.getElementById('mode-banner');
+  if (!banner) return;
+  if (galleryMode === 'browse_only') {
+    banner.style.display = 'block';
+    banner.textContent = 'Browse mode. Purchases open at the event.';
+  } else if (galleryMode === 'vip_window') {
+    banner.style.display = 'block';
+    banner.textContent = tokenValid
+      ? 'VIP early access. Public sales open shortly.'
+      : 'Purchases open shortly. Browse the catalogue now.';
+  } else if (galleryMode === 'closed') {
+    banner.style.display = 'block';
+    banner.textContent = 'Sales are now closed. Thank you for joining us!';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
 // Live polling — same logic as index.html
 async function pollStatus() {
   try {
@@ -388,6 +412,7 @@ async function pollStatus() {
     // Re-validate token on every poll (curator may have revoked mid-session)
     tokenValid = data.tokenValid === true;
     vipInfo = data.vipInfo || null;
+    if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderArtists(); }
     const fresh = data.works.filter(w => w.id && (w.artist || w.title));
     fresh.forEach(fw => {
       const existing = allWorks.find(w => w.id === fw.id);
@@ -443,6 +468,19 @@ function showPurchaseOptions() {
   document.getElementById('commit-form').classList.remove('open');
   document.getElementById('success-state').classList.remove('open');
   document.getElementById('sold-state').style.display = 'none';
+  // Phase-aware: hide commit during browse_only or vip_window-for-public (step 5)
+  if (galleryMode === 'browse_only' || (galleryMode === 'vip_window' && !tokenValid)) {
+    document.getElementById('purchase-section').style.display = 'none';
+    document.getElementById('sold-state').style.display = 'block';
+    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Purchases open at the event. See you there!</p>';
+    return;
+  }
+  if (galleryMode === 'closed') {
+    document.getElementById('purchase-section').style.display = 'none';
+    document.getElementById('sold-state').style.display = 'block';
+    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Sales are now closed. Thank you!</p>';
+    return;
+  }
   const s = currentWork?.status || 'available';
   if (s === 'sold') { document.getElementById('purchase-section').style.display='none'; document.getElementById('sold-state').style.display='block'; return; }
   const pend = s === 'pending';

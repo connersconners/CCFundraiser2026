@@ -300,7 +300,7 @@ const SPONSORS = [
 ];
 
 let allWorks = [], currentWork = null, currentFilter = 'all', commitType = '';
-let galleryMode = 'soft_launch', isVip = false, countdownTimer = null;
+let galleryMode = 'browse_only', isVip = false, countdownTimer = null;
 
 // VIP token state (step 3, frontend token detection)
 let vipToken = '';
@@ -391,19 +391,35 @@ function dismissPolaroid() {
 }
 
 function applyGalleryMode() {
-  const isSoft   = galleryMode === 'soft_launch';
-  const isClosed = galleryMode === 'closed';
-  const banner   = document.getElementById('mode-banner');
+  // Phase-aware UI (step 5)
+  // - browse_only: banner shown, commits hidden, prices hidden (also stripped by backend)
+  // - vip_window + tokenValid: VIP banner, commits enabled, prices visible
+  // - vip_window + !tokenValid: same as browse_only (public sees no movement)
+  // - live: standard view, no banner
+  // - closed: closed banner, commits hidden
+  const isBrowse  = galleryMode === 'browse_only';
+  const isVipWin  = galleryMode === 'vip_window';
+  const isClosed  = galleryMode === 'closed';
+  const banner    = document.getElementById('mode-banner');
   const countdownEl = document.getElementById('countdown-section');
-
   const vipCodeSection = document.getElementById('vip-code-section');
-  if (isSoft) {
+
+  // Hide legacy vip-code section in all new phases (will be removed entirely at step 9)
+  if (vipCodeSection) vipCodeSection.style.display = 'none';
+
+  if (isBrowse) {
     banner.style.display = 'block';
-    banner.textContent = isVip
-      ? 'VIP preview — browse the collection and make an offer before it opens to the public.'
-      : 'The gallery is not yet open for purchases. Check back on the night!';
+    banner.textContent = 'Browse mode. Purchases open at the event.';
     if (countdownEl) countdownEl.style.display = 'block';
-    if (vipCodeSection) vipCodeSection.style.display = isVip ? 'none' : 'block';
+    startCountdown();
+  } else if (isVipWin) {
+    banner.style.display = 'block';
+    if (tokenValid) {
+      banner.textContent = 'VIP early access. Public sales open shortly.';
+    } else {
+      banner.textContent = 'Purchases open shortly. Browse the catalogue now.';
+    }
+    if (countdownEl) countdownEl.style.display = 'block';
     startCountdown();
   } else if (isClosed) {
     banner.style.display = 'block';
@@ -429,9 +445,10 @@ function startCountdown() {
   countdownTimer = setInterval(tick, 1000);
 }
 
-// Price visibility — hidden in soft launch, or if work has active VIP offer
+// Price visibility — hidden in browse_only, hidden in vip_window for public (no token), hidden if work has VIP offer
 function showPrice(work) {
-  if (galleryMode === 'soft_launch') return false;
+  if (galleryMode === 'browse_only') return false;
+  if (galleryMode === 'vip_window' && !tokenValid) return false;
   if (work.hasVipOffer) return false;
   return true;
 }
@@ -493,7 +510,7 @@ function renderGrid() {
         <div class="work-title">${esc(w.title||'Untitled')}</div>
         ${w.representedBy ? `<div class="work-represented">Rep. ${esc(w.representedBy)}</div>` : ''}
         <div class="work-footer">
-          <span class="work-price">${showPrice(w) && w.price ? '$'+Number(w.price).toLocaleString() : (galleryMode==='soft_launch' ? '' : '')}</span>
+          <span class="work-price">${showPrice(w) && w.price ? '$'+Number(w.price).toLocaleString() : ''}</span>
           <span class="status-badge status-${w.status||'available'}">${statusLabel(w.status)}</span>
         </div>
       </div>
@@ -546,15 +563,11 @@ function showPurchaseOptions() {
     return;
   }
 
-  // Soft launch — VIPs can make offers, others see coming soon
-  if (galleryMode === 'soft_launch') {
+  // Browse-only or VIP-window-for-public: no purchase section
+  if (galleryMode === 'browse_only' || (galleryMode === 'vip_window' && !tokenValid)) {
     document.getElementById('purchase-section').style.display = 'none';
-    if (isVip && s !== 'sold') {
-      if (vipFormEl) vipFormEl.style.display = 'block';
-    } else {
-      document.getElementById('sold-state').style.display = 'block';
-      document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Purchases open on the night. See you there!</p>';
-    }
+    document.getElementById('sold-state').style.display = 'block';
+    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Purchases open at the event. See you there!</p>';
     return;
   }
 
