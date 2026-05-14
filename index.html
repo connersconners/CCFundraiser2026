@@ -356,9 +356,9 @@ async function loadWorks() {
     const data = await res.json();
     if (data.works && data.works.length > 0) {
       allWorks = data.works.filter(w => w.id && (w.artist || w.title));
-      if (data.mode) { galleryMode = data.mode; applyGalleryMode(); }
       tokenValid = data.tokenValid === true;
       vipInfo = data.vipInfo || null;
+      if (data.mode) { galleryMode = data.mode; applyGalleryMode(); }
       maybeShowPolaroid();
       renderGrid();
       handleHashLink();
@@ -465,10 +465,10 @@ async function pollStatus() {
     const res = await fetch(url);
     const data = await res.json();
     if (!data.works) return;
-    if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderGrid(); }
     // Re-validate token on every poll (curator may have revoked mid-session)
     tokenValid = data.tokenValid === true;
     vipInfo = data.vipInfo || null;
+    if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderGrid(); }
     const fresh = data.works.filter(w => w.id && (w.artist || w.title));
     fresh.forEach(fw => {
       const existing = allWorks.find(w => w.id === fw.id);
