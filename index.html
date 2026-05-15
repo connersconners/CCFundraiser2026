@@ -608,6 +608,7 @@ async function submitCommit(e) {
     phone: document.getElementById('f-phone').value.trim(),
     paymentType: commitType,
     vipOptIn: document.getElementById('f-vip').checked,
+    vipToken: vipToken, // step 6: pass token for attribution
     timestamp: new Date().toISOString(),
   };
   let success = false;
