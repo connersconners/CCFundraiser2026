@@ -236,6 +236,16 @@
   .vip-action-feedback.show { opacity: 1; }
   .vip-action-feedback.error { color: var(--danger); }
 
+  /* PHASE BANNER (step 8) */
+  .phase-banner { padding: 12px 18px; margin: 12px 24px 0; border-left: 3px solid; font-size: 12px; line-height: 1.5; }
+  .phase-banner-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .phase-banner-browse_only { background: var(--pending-bg); border-color: var(--pending); color: #5a3e1d; }
+  .phase-banner-browse_only .phase-banner-title { color: var(--pending); }
+  .phase-banner-vip_window { background: var(--pending-bg); border-color: var(--available); color: #1d4a35; }
+  .phase-banner-vip_window .phase-banner-title { color: var(--available); }
+  .phase-banner-closed { background: var(--light-gray); border-color: var(--mid-gray); color: #555; }
+  .phase-banner-closed .phase-banner-title { color: var(--mid-gray); }
+
   @media print {
     .dashboard > *:not(.qr-overlay) { display: none !important; }
     .qr-overlay { position: static; display: block !important; background: none; padding: 0; }
@@ -303,6 +313,8 @@
     <button class="qr-btn" onclick="openQRPanel()">⊞ QR codes</button>
     <button class="close-all-btn" onclick="confirmCloseAll()">⚠ Close all sales</button>
   </div>
+
+  <div class="phase-banner" id="phase-banner" style="display:none"></div>
 
   <div class="timer-warnings" id="timer-warnings"></div>
 
@@ -759,9 +771,31 @@ const MODE_LABELS = {
 
 function updateModeDisplay() {
   const el = document.getElementById('mode-badge-header');
-  if (!el) return;
-  el.textContent = MODE_LABELS[galleryMode] || galleryMode;
-  el.className = 'mode-badge mode-badge-' + galleryMode;
+  if (el) {
+    el.textContent = MODE_LABELS[galleryMode] || galleryMode;
+    el.className = 'mode-badge mode-badge-' + galleryMode;
+  }
+  updatePhaseBanner();
+}
+
+// Step 8: phase indicator banner, shown for all non-live phases to both
+// volunteers and admin so they understand what state the gallery is in.
+function updatePhaseBanner() {
+  const banner = document.getElementById('phase-banner');
+  if (!banner) return;
+
+  const messages = {
+    browse_only: { title: 'Browse only', body: 'Gallery in browse-only mode. No commits possible. Sales open shortly.' },
+    vip_window:  { title: 'VIP early access', body: 'Only VIPs with personal token links can commit. Public visitors can browse but not buy.' },
+    closed:      { title: 'Gallery closed', body: 'Sales are closed. No commits possible.' },
+  };
+
+  const msg = messages[galleryMode];
+  if (!msg) { banner.style.display = 'none'; return; }
+
+  banner.className = 'phase-banner phase-banner-' + galleryMode;
+  banner.innerHTML = '<div class="phase-banner-title">' + esc(msg.title) + '</div>' + esc(msg.body);
+  banner.style.display = 'block';
 }
 
 async function setMode(mode) {
