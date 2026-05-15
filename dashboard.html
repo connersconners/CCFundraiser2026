@@ -214,6 +214,28 @@
   .vip-btn-decline-all { border-color: var(--danger); color: var(--danger); }
   .vip-btn-decline-all:hover { background: var(--danger-bg); }
 
+  /* VIP LIST (step 7) */
+  .vip-list-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .vip-list-toolbar input[type="text"] { border: 1px solid var(--border); background: var(--white); padding: 6px 10px; font-family: var(--font); font-size: 12px; outline: none; min-width: 140px; }
+  .vip-list-toolbar input[type="text"]:focus { border-color: var(--black); }
+  .vip-list-toolbar input[type="file"] { font-size: 11px; }
+  .vip-list-toolbar .export-btn { margin-left: auto; }
+  .vip-list-status { font-size: 11px; color: var(--mid-gray); margin-bottom: 12px; min-height: 14px; }
+  .vip-list-status.success { color: var(--available); }
+  .vip-list-status.error { color: var(--danger); }
+  .vip-row { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .vip-row:last-child { border-bottom: none; }
+  .vip-row.inactive { opacity: 0.55; }
+  .vip-row-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .vip-row-contact { font-size: 11px; color: var(--mid-gray); word-break: break-word; }
+  .vip-row-attribution { font-size: 11px; color: var(--mid-gray); margin-top: 2px; font-style: italic; }
+  .vip-row-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .vip-toggle { display: flex; align-items: center; gap: 5px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--mid-gray); cursor: pointer; white-space: nowrap; }
+  .vip-toggle input { cursor: pointer; }
+  .vip-action-feedback { font-size: 10px; color: var(--available); white-space: nowrap; opacity: 0; transition: opacity 0.2s; min-width: 50px; }
+  .vip-action-feedback.show { opacity: 1; }
+  .vip-action-feedback.error { color: var(--danger); }
+
   @media print {
     .dashboard > *:not(.qr-overlay) { display: none !important; }
     .qr-overlay { position: static; display: block !important; background: none; padding: 0; }
@@ -328,6 +350,26 @@
       </div>
     </div>
 
+    <!-- VIP list (step 7) -->
+    <div class="admin-panel" id="panel-vip-list">
+      <div class="admin-panel-header" onclick="toggleAdminPanel('panel-vip-list')">
+        <h3>VIP list</h3>
+        <span id="vip-list-count" style="font-size:11px;color:var(--mid-gray)">Loading…</span>
+      </div>
+      <div class="admin-panel-body">
+        <div class="vip-list-toolbar">
+          <input type="file" id="vip-csv-input" accept=".csv,text/csv">
+          <input type="text" id="vip-batch-input" placeholder="Batch label (optional)">
+          <button class="mode-btn" onclick="importVipCsv()">Import CSV</button>
+          <button class="mode-btn export-btn" onclick="exportVipCsv()">Download CSV with tokens</button>
+        </div>
+        <div class="vip-list-status" id="vip-list-status"></div>
+        <div id="vip-list-rows">
+          <p style="font-size:12px;color:var(--mid-gray)">Loading VIPs…</p>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <div class="work-list" id="work-list">
@@ -422,7 +464,7 @@ async function loadWorks() {
       allTimers = data.timers || [];
       galleryMode = data.mode || 'browse_only';
       renderList(); updateStats(); renderTimerWarnings(); updateModeDisplay();
-      if (isAdmin) loadVipOffers();
+      if (isAdmin) { loadVipOffers(); loadVipList(); }
       document.getElementById('last-updated').textContent =
         'Updated ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }
@@ -854,6 +896,166 @@ async function declineAllVipOffers(workId, workTitle) {
   const data = await res.json();
   if (data.offers) { allVipOffers = data.offers; renderVipOffers(); }
   if (data.works) { allWorks = data.works.filter(w => w.id && (w.artist || w.title)); renderList(); updateStats(); }
+}
+
+// ---- VIP LIST (step 7) ----
+let allVips = [];
+
+async function loadVipList() {
+  try {
+    const res = await fetch(SHEET_API_URL + '?action=adminGetVipList&pwd=' + encodeURIComponent(ADMIN_PASSWORD));
+    const data = await res.json();
+    if (data.vips) { allVips = data.vips; renderVipList(); }
+  } catch(e) { console.error('VIP list load failed', e); }
+}
+
+function renderVipList() {
+  const active = allVips.filter(v => v.active).length;
+  const total = allVips.length;
+  const countEl = document.getElementById('vip-list-count');
+  if (countEl) countEl.textContent = total === 0 ? 'No VIPs yet' : active + ' active / ' + total + ' total';
+
+  const body = document.getElementById('vip-list-rows');
+  if (!body) return;
+
+  if (!allVips.length) {
+    body.innerHTML = '<p style="font-size:12px;color:var(--mid-gray)">No VIPs yet. Import a CSV to add some.</p>';
+    return;
+  }
+
+  body.innerHTML = allVips.map(v => `
+    <div class="vip-row ${v.active ? '' : 'inactive'}">
+      <div>
+        <div class="vip-row-name">${esc(v.name)}</div>
+        <div class="vip-row-contact">${esc(v.email)}${v.phone ? ' · ' + esc(v.phone) : ''}</div>
+        ${v.attribution ? `<div class="vip-row-attribution">With thanks to ${esc(v.attribution)}</div>` : ''}
+      </div>
+      <label class="vip-toggle">
+        <input type="checkbox" ${v.active ? 'checked' : ''} onchange="toggleVipActive('${escA(v.token)}', this.checked)">
+        Active
+      </label>
+      <div class="vip-row-actions">
+        <button class="vip-btn vip-btn-accept" onclick="copyVipUrl('${escA(v.token)}')">Copy URL</button>
+        <button class="vip-btn vip-btn-decline" onclick="resendVipEmail('${escA(v.token)}','${escA(v.name)}')">Resend email</button>
+        <span class="vip-action-feedback" id="vip-feedback-${esc(v.token)}"></span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function importVipCsv() {
+  const fileInput = document.getElementById('vip-csv-input');
+  const batchInput = document.getElementById('vip-batch-input');
+  const file = fileInput.files[0];
+  if (!file) { setVipStatus('Choose a CSV file first.', 'error'); return; }
+
+  setVipStatus('Reading file…', '');
+  try {
+    const text = await file.text();
+    const res = await fetch(SHEET_API_URL, {
+      method: 'POST', headers: {'Content-Type':'text/plain'},
+      body: JSON.stringify({ action: 'adminImportVipList', csv: text, batch: batchInput.value.trim(), pwd: ADMIN_PASSWORD }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      const reasons = (data.skipReasons && data.skipReasons.length) ? ' Reasons: ' + data.skipReasons.join('; ') : '';
+      setVipStatus('Added ' + data.added + ', skipped ' + data.skipped + '.' + reasons, 'success');
+      fileInput.value = '';
+      batchInput.value = '';
+      loadVipList();
+    } else {
+      setVipStatus(data.error || 'Import failed.', 'error');
+    }
+  } catch(e) {
+    console.error('CSV import failed', e);
+    setVipStatus('Import failed: ' + e.message, 'error');
+  }
+}
+
+function exportVipCsv() {
+  if (!allVips.length) { setVipStatus('No VIPs to export.', 'error'); return; }
+  const baseUrl = GALLERY_URL.replace(/\/index\.html$/, '/');
+  const headers = ['name','email','phone','attribution','token','url','active','firstSeen','batch'];
+  const rows = allVips.map(v => [
+    v.name, v.email, v.phone, v.attribution, v.token,
+    baseUrl + '?token=' + encodeURIComponent(v.token),
+    v.active ? 'true' : 'false', v.firstSeen || '', v.batch || '',
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = 'cc-vips-' + ts + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setVipStatus('Exported ' + allVips.length + ' VIPs.', 'success');
+}
+
+function csvCell(value) {
+  const s = String(value == null ? '' : value);
+  if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+
+async function copyVipUrl(token) {
+  const baseUrl = GALLERY_URL.replace(/\/index\.html$/, '/');
+  const url = baseUrl + '?token=' + encodeURIComponent(token);
+  try {
+    await navigator.clipboard.writeText(url);
+    showVipFeedback(token, 'Copied', false);
+  } catch(e) {
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showVipFeedback(token, 'Copied', false); }
+    catch(e2) { showVipFeedback(token, 'Copy failed', true); }
+    document.body.removeChild(ta);
+  }
+}
+
+async function resendVipEmail(token, name) {
+  if (!confirm('Resend VIP token email to ' + name + '?')) return;
+  const res = await fetch(SHEET_API_URL, {
+    method: 'POST', headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify({ action: 'adminResendToken', token, pwd: ADMIN_PASSWORD }),
+  });
+  const data = await res.json();
+  if (data.success) {
+    showVipFeedback(token, 'Sent', false);
+  } else {
+    showVipFeedback(token, data.error || 'Failed', true);
+  }
+}
+
+async function toggleVipActive(token, active) {
+  const res = await fetch(SHEET_API_URL, {
+    method: 'POST', headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify({ action: 'adminToggleTokenActive', token, active, pwd: ADMIN_PASSWORD }),
+  });
+  const data = await res.json();
+  if (data.success) {
+    const vip = allVips.find(v => v.token === token);
+    if (vip) vip.active = active;
+    renderVipList();
+  } else {
+    loadVipList();
+  }
+}
+
+function showVipFeedback(token, msg, isError) {
+  const el = document.getElementById('vip-feedback-' + token);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  el.classList.toggle('error', !!isError);
+  setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function setVipStatus(msg, type) {
+  const el = document.getElementById('vip-list-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'vip-list-status' + (type ? ' ' + type : '');
 }
 
 // ---- HELPERS ----
