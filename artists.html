@@ -511,7 +511,9 @@ async function submitCommit(e) {
     name: document.getElementById('f-name').value.trim(),
     email: document.getElementById('f-email').value.trim(),
     phone: document.getElementById('f-phone').value.trim(),
-    paymentType: commitType, timestamp: new Date().toISOString(),
+    paymentType: commitType,
+    vipToken: vipToken, // step 6: pass token for attribution
+    timestamp: new Date().toISOString(),
   };
   let success = false;
   try {
