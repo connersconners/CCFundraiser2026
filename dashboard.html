@@ -39,6 +39,9 @@
   header { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; height: 48px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
   .logo { font-size: 14px; font-weight: 700; color: var(--black); }
   .header-tag { font-size: 11px; color: var(--mid-gray); margin-left: 10px; }
+  .role-pill { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; border: 1px solid; margin-left: 10px; }
+  .role-pill.role-volunteer { color: var(--mid-gray); border-color: var(--border); background: var(--light-gray); }
+  .role-pill.role-admin { color: var(--white); border-color: var(--black); background: var(--black); }
   .header-actions { display: flex; gap: 8px; align-items: center; }
 
   .stats-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; overflow-x: auto; }
@@ -285,7 +288,7 @@
   <header>
     <div style="display:flex;align-items:center">
       <span class="logo">Conners Conners</span>
-      <span class="header-tag" id="role-tag">Volunteer</span>
+      <span class="role-pill role-volunteer" id="role-tag">Volunteer</span>
     </div>
     <div class="header-actions">
       <button class="btn-sm btn-sm-default" onclick="loadWorks()">↻ Refresh</button>
@@ -445,7 +448,9 @@ function attemptLogin() {
     isAdmin = (pwd === ADMIN_PASSWORD);
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').classList.add('open');
-    document.getElementById('role-tag').textContent = isAdmin ? 'Admin' : 'Volunteer';
+    const roleTag = document.getElementById('role-tag');
+    roleTag.textContent = isAdmin ? 'Admin' : 'Volunteer';
+    roleTag.className = isAdmin ? 'role-pill role-admin' : 'role-pill role-volunteer';
     document.getElementById('admin-panels').style.display = isAdmin ? 'flex' : 'none';
     loadWorks();
     if (isAdmin) { loadVipOffers(); }
@@ -483,12 +488,12 @@ async function loadWorks() {
   } catch(e) { console.error('Refresh failed', e); }
 }
 
-async function sendAction(payload) {
+async function sendAction(payload, pwdOverride) {
   try {
     const res = await fetch(SHEET_API_URL, {
       method: 'POST',
       headers: {'Content-Type': 'text/plain'},
-      body: JSON.stringify({...payload, pwd: isAdmin ? ADMIN_PASSWORD : VOLUNTEER_PASSWORD}),
+      body: JSON.stringify({...payload, pwd: pwdOverride || (isAdmin ? ADMIN_PASSWORD : VOLUNTEER_PASSWORD)}),
     });
     const data = await res.json();
     if (data.works) {
@@ -634,11 +639,25 @@ function confirmAdminAction(action, workId, newStatus, title, body) {
 }
 
 function confirmCloseAll() {
-  pendingAction = {action:'closeAll', requiresAdmin: false};
-  document.getElementById('confirm-title').textContent = 'Close all sales?';
-  document.getElementById('confirm-body').textContent = 'This will mark ALL remaining works as sold and clear all queues. This cannot be undone.';
-  document.getElementById('confirm-input-wrap').style.display = 'none';
+  const title = 'Close all sales?';
+  const body = 'This will mark ALL remaining works as sold and clear all queues. This cannot be undone.';
+  if (isAdmin) {
+    pendingAction = {action:'closeAll', requiresAdmin: false};
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-body').textContent = body;
+    document.getElementById('confirm-input-wrap').style.display = 'none';
+    document.getElementById('admin-pwd-error').style.display = 'none';
+    document.getElementById('confirm-overlay').classList.add('open');
+    return;
+  }
+  pendingAction = {action:'closeAll', requiresAdmin: true};
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-body').textContent = body + ' Requires the admin password.';
+  document.getElementById('confirm-input-wrap').style.display = 'block';
+  document.getElementById('confirm-admin-pwd').value = '';
+  document.getElementById('admin-pwd-error').style.display = 'none';
   document.getElementById('confirm-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('confirm-admin-pwd').focus(), 100);
 }
 
 async function executePending() {
@@ -652,8 +671,9 @@ async function executePending() {
     }
   }
 
+  const adminOverride = pendingAction.requiresAdmin ? ADMIN_PASSWORD : null;
   closeConfirm();
-  await sendAction(pendingAction);
+  await sendAction(pendingAction, adminOverride);
   pendingAction = null;
 }
 
