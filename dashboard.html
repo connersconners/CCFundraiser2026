@@ -56,6 +56,8 @@
   .filter-select { border: 1px solid var(--border); background: var(--white); padding: 8px 12px; font-family: var(--font); font-size: 12px; outline: none; cursor: pointer; color: var(--black); border-radius: 0; -webkit-appearance: none; }
   .close-all-btn { margin-left: auto; font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 8px 16px; border: 1px solid var(--danger); background: transparent; color: var(--danger); cursor: pointer; transition: all 0.1s; }
   .close-all-btn:hover { background: var(--danger-bg); }
+  .admin-only { display: none; }
+  .dashboard.is-admin .admin-only { display: inline-block; }
   .qr-btn { font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 8px 16px; border: 1px solid var(--border); background: var(--white); color: var(--black); cursor: pointer; transition: all 0.1s; }
   .qr-btn:hover { border-color: var(--black); }
 
@@ -197,25 +199,11 @@
   .schedule-input { border: 1px solid var(--border); background: var(--white); padding: 6px 10px; font-family: var(--font); font-size: 12px; outline: none; flex: 1; min-width: 180px; }
   .schedule-input:focus { border-color: var(--black); }
 
-  .vip-work-group { margin-bottom: 20px; }
-  .vip-work-group h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mid-gray); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
-  .vip-offer-item { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
-  .vip-offer-item:last-child { border-bottom: none; }
-  .vip-offer-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
-  .vip-offer-contact { font-size: 11px; color: var(--mid-gray); }
-  .vip-offer-amount { font-size: 16px; font-weight: 700; white-space: nowrap; }
-  .vip-offer-status { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid; white-space: nowrap; }
-  .vip-status-pending { border-color: var(--pending); color: var(--pending); }
-  .vip-status-accepted { border-color: var(--available); color: var(--available); }
-  .vip-status-declined { border-color: var(--mid-gray); color: var(--mid-gray); }
-  .vip-offer-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
   .vip-btn { font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 10px; border: 1px solid; background: var(--white); cursor: pointer; white-space: nowrap; }
   .vip-btn-accept { border-color: var(--available); color: var(--available); }
   .vip-btn-accept:hover { background: var(--available-bg); }
   .vip-btn-decline { border-color: var(--mid-gray); color: var(--mid-gray); }
   .vip-btn-decline:hover { background: var(--light-gray); }
-  .vip-btn-decline-all { border-color: var(--danger); color: var(--danger); }
-  .vip-btn-decline-all:hover { background: var(--danger-bg); }
 
   /* VIP LIST (step 7) */
   .vip-list-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
@@ -292,7 +280,7 @@
     </div>
     <div class="header-actions">
       <button class="btn-sm btn-sm-default" onclick="loadWorks()">↻ Refresh</button>
-      <button class="btn-sm btn-sm-danger" onclick="confirmCloseAll()">Close all sales</button>
+      <button class="btn-sm btn-sm-danger admin-only" onclick="confirmCloseAll()">Close all sales</button>
       <button class="btn-sm btn-sm-default" onclick="logout()">Sign out</button>
     </div>
   </header>
@@ -314,7 +302,7 @@
       <option value="sold">Sold</option>
     </select>
     <button class="qr-btn" onclick="openQRPanel()">⊞ QR codes</button>
-    <button class="close-all-btn" onclick="confirmCloseAll()">⚠ Close all sales</button>
+    <button class="close-all-btn admin-only" onclick="confirmCloseAll()">⚠ Close all sales</button>
   </div>
 
   <div class="phase-banner" id="phase-banner" style="display:none"></div>
@@ -351,17 +339,6 @@
           <button class="mode-btn" onclick="cancelTransition('live')">Cancel</button>
         </div>
         <p style="font-size:11px;color:var(--mid-gray);margin-top:6px" id="schedule-live-status"></p>
-      </div>
-    </div>
-
-    <!-- VIP offers -->
-    <div class="admin-panel" id="panel-vip">
-      <div class="admin-panel-header" onclick="toggleAdminPanel('panel-vip')">
-        <h3>VIP offers</h3>
-        <span id="vip-offer-count" style="font-size:11px;color:var(--mid-gray)">Loading…</span>
-      </div>
-      <div class="admin-panel-body" id="vip-panel-body">
-        <p style="font-size:12px;color:var(--mid-gray)">Loading offers…</p>
       </div>
     </div>
 
@@ -439,7 +416,7 @@ const AUTO_REFRESH = 15000;
 // Public gallery base URL — update if your GitHub Pages URL changes
 const GALLERY_URL = 'https://connersconners.github.io/CCFundraiser2026/index.html';
 
-let allWorks = [], refreshTimer = null, pendingAction = null, isAdmin = false, allTimers = [], galleryMode = 'browse_only', allVipOffers = [];
+let allWorks = [], refreshTimer = null, pendingAction = null, isAdmin = false, allTimers = [], galleryMode = 'browse_only';
 
 // ---- AUTH ----
 function attemptLogin() {
@@ -452,8 +429,8 @@ function attemptLogin() {
     roleTag.textContent = isAdmin ? 'Admin' : 'Volunteer';
     roleTag.className = isAdmin ? 'role-pill role-admin' : 'role-pill role-volunteer';
     document.getElementById('admin-panels').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('dashboard').classList.toggle('is-admin', isAdmin);
     loadWorks();
-    if (isAdmin) { loadVipOffers(); }
     refreshTimer = setInterval(loadWorks, AUTO_REFRESH);
   } else {
     document.getElementById('login-error').style.display = 'block';
@@ -468,6 +445,7 @@ function logout() {
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('password-input').value = '';
   isAdmin = false;
+  document.getElementById('dashboard').classList.remove('is-admin');
 }
 
 // ---- DATA ----
@@ -481,7 +459,7 @@ async function loadWorks() {
       allTimers = data.timers || [];
       galleryMode = data.mode || 'browse_only';
       renderList(); updateStats(); renderTimerWarnings(); updateModeDisplay();
-      if (isAdmin) { loadVipOffers(); loadVipList(); }
+      if (isAdmin) { loadVipList(); }
       document.getElementById('last-updated').textContent =
         'Updated ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }
@@ -868,88 +846,6 @@ async function cancelTransition(target) {
 
 function toggleAdminPanel(id) {
   document.getElementById(id)?.classList.toggle('open');
-}
-
-// ---- VIP OFFERS ----
-async function loadVipOffers() {
-  try {
-    const res = await fetch(SHEET_API_URL + '?action=getVipOffers&pwd=' + encodeURIComponent(ADMIN_PASSWORD));
-    const data = await res.json();
-    if (data.offers) { allVipOffers = data.offers; renderVipOffers(); }
-  } catch(e) { console.error('VIP offers load failed', e); }
-}
-
-function renderVipOffers() {
-  const pending = allVipOffers.filter(o => o.status === 'pending');
-  const countEl = document.getElementById('vip-offer-count');
-  if (countEl) countEl.textContent = pending.length ? pending.length + ' pending offer' + (pending.length>1?'s':'') : 'No pending offers';
-
-  const body = document.getElementById('vip-panel-body');
-  if (!body) return;
-
-  if (!allVipOffers.length) { body.innerHTML = '<p style="font-size:12px;color:var(--mid-gray)">No VIP offers yet.</p>'; return; }
-
-  // Group by workId
-  const byWork = {};
-  allVipOffers.forEach(o => { if (!byWork[o.workId]) byWork[o.workId] = []; byWork[o.workId].push(o); });
-
-  body.innerHTML = Object.entries(byWork).map(([workId, offers]) => {
-    const work = allWorks.find(w => w.id === workId);
-    const workTitle = work ? (work.artist ? work.artist + ' — ' : '') + work.title : workId;
-    const sorted = [...offers].sort((a,b) => Number(b.amount) - Number(a.amount));
-    const hasPending = sorted.some(o => o.status === 'pending');
-
-    return `<div class="vip-work-group">
-      <h4>${esc(workTitle)} ${hasPending ? '<span class="vip-offer-status vip-status-pending">Has pending offers</span>' : ''}</h4>
-      ${sorted.map((o,i) => `
-        <div class="vip-offer-item">
-          <div>
-            <div class="vip-offer-name">${esc(o.name)} ${i===0&&o.status==='pending'?'<span style="font-size:10px;color:var(--pending)">Highest</span>':''}</div>
-            <div class="vip-offer-contact">${esc(o.email)} · ${esc(o.phone)}</div>
-            ${o.status === 'pending' ? `<div class="vip-offer-actions">
-              <button class="vip-btn vip-btn-accept" onclick="acceptVipOffer('${o.id}','${escA(workId)}','${escA(workTitle)}')">Accept offer</button>
-              <button class="vip-btn vip-btn-decline" onclick="declineVipOffer('${o.id}','${escA(workId)}','${escA(workTitle)}')">Decline</button>
-            </div>` : ''}
-          </div>
-          <div class="vip-offer-amount">$${Number(o.amount).toLocaleString()}</div>
-          <div><span class="vip-offer-status vip-status-${o.status}">${o.status}</span></div>
-        </div>`).join('')}
-      ${hasPending ? `<div style="margin-top:10px"><button class="vip-btn vip-btn-decline-all" onclick="declineAllVipOffers('${escA(workId)}','${escA(workTitle)}')">Decline all offers for this work</button></div>` : ''}
-    </div>`;
-  }).join('');
-}
-
-async function acceptVipOffer(offerId, workId, workTitle) {
-  if (!confirm('Accept this offer? All other offers for this work will be declined.')) return;
-  const res = await fetch(SHEET_API_URL, {
-    method: 'POST', headers: {'Content-Type':'text/plain'},
-    body: JSON.stringify({ action: 'acceptVipOffer', offerId, workId, workTitle, pwd: ADMIN_PASSWORD }),
-  });
-  const data = await res.json();
-  if (data.works) { allWorks = data.works.filter(w => w.id && (w.artist || w.title)); renderList(); updateStats(); }
-  if (data.offers) { allVipOffers = data.offers; renderVipOffers(); }
-}
-
-async function declineVipOffer(offerId, workId, workTitle) {
-  if (!confirm('Decline this offer?')) return;
-  const res = await fetch(SHEET_API_URL, {
-    method: 'POST', headers: {'Content-Type':'text/plain'},
-    body: JSON.stringify({ action: 'declineVipOffer', offerId, workId, workTitle, pwd: ADMIN_PASSWORD }),
-  });
-  const data = await res.json();
-  if (data.offers) { allVipOffers = data.offers; renderVipOffers(); }
-  if (data.works) { allWorks = data.works.filter(w => w.id && (w.artist || w.title)); renderList(); updateStats(); }
-}
-
-async function declineAllVipOffers(workId, workTitle) {
-  if (!confirm('Decline ALL pending offers for ' + workTitle + '? The work will go back to available.')) return;
-  const res = await fetch(SHEET_API_URL, {
-    method: 'POST', headers: {'Content-Type':'text/plain'},
-    body: JSON.stringify({ action: 'declineAllVipOffers', workId, workTitle, pwd: ADMIN_PASSWORD }),
-  });
-  const data = await res.json();
-  if (data.offers) { allVipOffers = data.offers; renderVipOffers(); }
-  if (data.works) { allWorks = data.works.filter(w => w.id && (w.artist || w.title)); renderList(); updateStats(); }
 }
 
 // ---- VIP LIST (step 7) ----
