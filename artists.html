@@ -29,59 +29,49 @@
   nav a.active { color: var(--black); font-weight: 700; }
 
   /* INTRO */
-  .intro { padding: 40px 24px 32px; border-bottom: 1px solid var(--border); max-width: 600px; }
+  .intro { padding: 40px 24px 28px; border-bottom: 1px solid var(--border); }
   .intro-eyebrow { font-size: 12px; color: var(--mid-gray); margin-bottom: 8px; }
+  .intro-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .intro h1 { font-size: 22px; font-weight: 700; margin-bottom: 0; line-height: 1.2; }
 
-  /* ARTIST LIST */
-  .artist-section { border-bottom: 1px solid var(--border); }
+  /* SORT CONTROL */
+  .sort-control { display: flex; align-items: center; gap: 8px; }
+  .sort-label { font-size: 11px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
+  .sort-seg { display: inline-flex; border: 1px solid var(--border); }
+  .sort-seg button { font-family: var(--font); font-size: 12px; padding: 6px 12px; background: transparent; border: none; cursor: pointer; color: var(--mid-gray); transition: all 0.1s; }
+  .sort-seg button + button { border-left: 1px solid var(--border); }
+  .sort-seg button:hover { color: var(--black); }
+  .sort-seg button.active { background: var(--black); color: var(--white); font-weight: 700; }
 
-  .artist-header {
-    padding: 24px 24px 20px;
+  /* WORKS GRID (tile per work) */
+  .works-grid {
     display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: start;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 16px;
-    border-bottom: 1px solid var(--border);
-    cursor: pointer;
-    user-select: none;
-    transition: background 0.1s;
+    padding: 24px;
+    max-width: 1280px;
   }
-  .artist-header:hover { background: var(--off-white); }
-
-  .artist-name { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
-  .artist-represented { font-size: 12px; color: var(--mid-gray); }
-  .artist-work-count { font-size: 12px; color: var(--mid-gray); white-space: nowrap; margin-top: 4px; text-align: right; }
-
-  .artist-works {
-    display: none;
-    grid-template-columns: repeat(2, 1fr);
-    max-width: 520px;
-    background: var(--off-white);
-    border-top: 1px solid var(--border);
-  }
-  .artist-section.expanded .artist-works { display: grid; }
-
-  .chevron { font-size: 11px; color: var(--mid-gray); transition: transform 0.2s; margin-top: 6px; }
-  .artist-section.expanded .chevron { transform: rotate(180deg); }
-
-  /* WORK CARDS (compact) */
-  .work-card-sm {
-    cursor: pointer;
-    border-bottom: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    transition: background 0.1s;
+  .work-tile {
     background: var(--white);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.1s;
   }
-  .work-card-sm:hover { background: var(--off-white); }
-  .work-image-wrap { width: 100%; aspect-ratio: 1/1; overflow: hidden; background: var(--light-gray); display: flex; align-items: center; justify-content: center; }
+  .work-tile:hover { border-color: var(--black); }
+
+  .work-image-wrap { width: 100%; aspect-ratio: 1/1; position: relative; overflow: hidden; background: var(--light-gray); display: flex; align-items: center; justify-content: center; }
   .work-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .work-image-placeholder { font-size: 11px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
-  .work-info-sm { padding: 8px 10px 10px; }
-  .work-title-sm { font-size: 12px; color: #444; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .work-footer-sm { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .work-price-sm { font-size: 11px; font-weight: 700; }
-  .status-badge { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; transition: color 0.3s; }
+
+  .work-num { position: absolute; top: 8px; left: 8px; z-index: 2; font-size: 11px; font-weight: 700; background: rgba(10,10,10,0.6); color: #fff; padding: 2px 7px; letter-spacing: 0.02em; }
+  .work-artist-overlay { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: rgba(10,10,10,0.62); color: #fff; font-weight: 700; font-size: 15px; line-height: 1.2; padding: 9px 11px; }
+
+  .work-info { padding: 9px 11px 11px; }
+  .work-title { font-size: 12px; color: #444; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .work-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .work-price { font-size: 12px; font-weight: 700; }
+
+  .status-badge { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; transition: color 0.3s; white-space: nowrap; }
   .status-available { color: var(--black); }
   .status-pending { color: var(--pending); }
   .status-sold { color: var(--sold); }
@@ -167,11 +157,20 @@
 
 <section class="intro">
   <p class="intro-eyebrow">Conners Conners Gallery — Fundraiser 2026</p>
-  <h1>Artists</h1>
+  <div class="intro-row">
+    <h1>Artists</h1>
+    <div class="sort-control">
+      <span class="sort-label">Order</span>
+      <div class="sort-seg">
+        <button id="sort-surname" class="active" onclick="setSort('surname')">Surname</button>
+        <button id="sort-number" onclick="setSort('number')">Work number</button>
+      </div>
+    </div>
+  </div>
 </section>
 
 <main id="artist-list">
-  <div class="page-message">Loading artists…</div>
+  <div class="page-message">Loading works…</div>
 </main>
 
 <footer>
@@ -257,6 +256,7 @@ const POLL_INTERVAL = 30000;
 
 let allWorks = [], currentWork = null, commitType = '';
 let galleryMode = 'browse_only';
+let sortMode = 'surname';
 
 // VIP token state (step 3, frontend token detection)
 let vipToken = '';
@@ -309,78 +309,62 @@ async function loadWorks() {
       vipInfo = data.vipInfo || null;
       if (data.mode) { galleryMode = data.mode; applyGalleryMode(); }
       maybeShowPolaroid();
-      renderArtists();
+      renderWorks();
       return;
     }
   } catch(e) {
     document.getElementById('error-banner').style.display = 'block';
   }
   allWorks = [{ id: 'w001', artist: 'Ry Haskings', title: 'Rolpanel Nova Kickback', status: 'available', imageUrl: '', price: '', representedBy: 'Conners Conners' }];
-  renderArtists();
+  renderWorks();
 }
 
-function renderArtists() {
+// Sort helpers
+function lastName(n) { return String(n || 'Unknown artist').trim().split(/\s+/).pop().toLowerCase(); }
+function worknum(w) { const m = String(w.id || '').match(/\d+/); return m ? parseInt(m[0], 10) : Infinity; }
+function surnameCmp(a, b) { return lastName(a.artist).localeCompare(lastName(b.artist)) || String(a.title || '').localeCompare(String(b.title || '')); }
+
+function setSort(mode) {
+  sortMode = mode;
+  document.getElementById('sort-surname').classList.toggle('active', mode === 'surname');
+  document.getElementById('sort-number').classList.toggle('active', mode === 'number');
+  renderWorks();
+}
+
+function workTile(w) {
+  const n = worknum(w);
+  const numChip = isFinite(n) ? `<span class="work-num">#${n}</span>` : '';
+  const img = w.imageUrl
+    ? `<img src="${esc(w.imageUrl)}" alt="${esc(w.title||'')}" loading="lazy">`
+    : '<span class="work-image-placeholder">No image</span>';
+  return `
+    <div class="work-tile" data-work-id="${w.id}" onclick="openWork('${w.id}')">
+      <div class="work-image-wrap">
+        ${numChip}
+        ${img}
+        <div class="work-artist-overlay">${esc(w.artist||'Unknown artist')}</div>
+      </div>
+      <div class="work-info">
+        <div class="work-title">${esc(w.title||'Untitled')}</div>
+        <div class="work-footer">
+          <span class="work-price">${w.price ? '$'+Number(w.price).toLocaleString() : ''}</span>
+          <span class="status-badge status-${w.status||'available'}">${statusLabel(w.status)}</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderWorks() {
   const container = document.getElementById('artist-list');
-
-  // Group works by artist, preserving first-seen order
-  const artistMap = new Map();
-  allWorks.forEach(w => {
-    const name = w.artist || 'Unknown artist';
-    if (!artistMap.has(name)) artistMap.set(name, { name, representedBy: w.representedBy || '', works: [] });
-    artistMap.get(name).works.push(w);
+  const works = allWorks.slice().sort((a, b) => {
+    if (sortMode === 'number') return worknum(a) - worknum(b) || surnameCmp(a, b);
+    return surnameCmp(a, b);
   });
-
-  const artists = Array.from(artistMap.values()).sort((a,b) => {
-    // Sort by last name
-    const lastName = n => n.split(' ').pop().toLowerCase();
-    return lastName(a.name).localeCompare(lastName(b.name));
-  });
-
-  if (!artists.length) {
-    container.innerHTML = '<div class="page-message">No artists found.</div>';
+  if (!works.length) {
+    container.innerHTML = '<div class="page-message">No works found.</div>';
     return;
   }
-
-  container.innerHTML = artists.map(artist => {
-    const availCount = artist.works.filter(w => w.status === 'available').length;
-    const total = artist.works.length;
-    const countLabel = availCount === total
-      ? `${total} work${total !== 1 ? 's' : ''}`
-      : `${availCount} of ${total} work${total !== 1 ? 's' : ''} available`;
-
-    return `
-      <div class="artist-section" id="artist-${slugify(artist.name)}">
-        <div class="artist-header" onclick="toggleArtist('${slugify(artist.name)}')">
-          <div>
-            <div class="artist-name">${esc(artist.name)}</div>
-            ${artist.representedBy ? `<div class="artist-represented">Represented by ${esc(artist.representedBy)}</div>` : ''}
-          </div>
-          <div style="text-align:right">
-            <div class="artist-work-count">${countLabel}</div>
-            <div class="chevron">▾</div>
-          </div>
-        </div>
-        <div class="artist-works">
-          ${artist.works.map(w => `
-            <div class="work-card-sm" data-work-id="${w.id}" onclick="openWork('${w.id}')">
-              <div class="work-image-wrap">
-                ${w.imageUrl ? `<img src="${esc(w.imageUrl)}" alt="${esc(w.title||'')}" loading="lazy">` : '<span class="work-image-placeholder">No image</span>'}
-              </div>
-              <div class="work-info-sm">
-                <div class="work-title-sm">${esc(w.title||'Untitled')}</div>
-                <div class="work-footer-sm">
-                  <span class="work-price-sm">${w.price ? '$'+Number(w.price).toLocaleString() : ''}</span>
-                  <span class="status-badge status-${w.status||'available'}">${statusLabel(w.status)}</span>
-                </div>
-              </div>
-            </div>`).join('')}
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function toggleArtist(slug) {
-  document.getElementById('artist-' + slug)?.classList.toggle('expanded');
+  container.innerHTML = '<div class="works-grid">' + works.map(workTile).join('') + '</div>';
 }
 
 // Phase-aware UI (step 5)
@@ -413,7 +397,7 @@ async function pollStatus() {
     // Re-validate token on every poll (curator may have revoked mid-session)
     tokenValid = data.tokenValid === true;
     vipInfo = data.vipInfo || null;
-    if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderArtists(); }
+    if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderWorks(); }
     const fresh = data.works.filter(w => w.id && (w.artist || w.title));
     fresh.forEach(fw => {
       const existing = allWorks.find(w => w.id === fw.id);
@@ -521,7 +505,7 @@ async function submitCommit(e) {
     const res = await fetch(SHEET_API_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
     const data = await res.json();
     success = data.success;
-    if (data.works) { allWorks = data.works.filter(w => w.id && (w.artist||w.title)); renderArtists(); }
+    if (data.works) { allWorks = data.works.filter(w => w.id && (w.artist||w.title)); renderWorks(); }
   } catch(err) { console.error(err); }
   document.getElementById('commit-form').classList.remove('open');
   document.getElementById('success-state').classList.add('open');
@@ -533,7 +517,6 @@ async function submitCommit(e) {
   e.target.reset(); btn.disabled=false; btn.textContent='Submit commitment';
 }
 
-function slugify(s) { return String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-'); }
 function statusLabel(s) { return s==='sold'?'Sold':s==='pending'?'Pending':'Available'; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 </script>
