@@ -58,6 +58,7 @@
   .work-price { font-size: 13px; font-weight: 700; }
   .status-badge { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; transition: color 0.3s; }
   .status-available { color: var(--black); }
+  .status-digital { color: var(--black); }
   .status-pending { color: var(--pending); }
   .status-sold { color: var(--sold); }
   @keyframes statusFlash { 0%{opacity:0.2} 50%{opacity:1} 100%{opacity:1} }
@@ -223,7 +224,7 @@
       </form>
 
       <div class="success-state" id="success-state">
-        <div class="success-title">You're in the queue.</div>
+        <div class="success-title" id="success-title">You're in the queue.</div>
         <div class="success-body" id="success-body"></div>
         <button class="btn btn-outline" onclick="closeModal()" style="width:auto;padding:9px 20px;margin-top:4px">Close</button>
       </div>
@@ -426,6 +427,7 @@ function startCountdown() {
 
 // Price visibility — hidden in browse_only, hidden in vip_window for public (no token)
 function showPrice(work) {
+  if (work && work.status === 'digital') return true;
   if (previewMode) return true;
   if (galleryMode === 'browse_only') return false;
   if (galleryMode === 'vip_window' && !tokenValid) return false;
@@ -481,7 +483,11 @@ function worknum(w) { const m = String(w.id || '').match(/\d+/); return m ? pars
 
 function renderGrid() {
   const grid = document.getElementById('gallery-grid');
-  const filtered = (currentFilter === 'all' ? allWorks : allWorks.filter(w => w.status === currentFilter))
+  const filtered = (currentFilter === 'all'
+      ? allWorks
+      : allWorks.filter(w => currentFilter === 'available'
+          ? (w.status === 'available' || w.status === 'digital')
+          : w.status === currentFilter))
     .slice().sort((a, b) => worknum(a) - worknum(b));
   document.getElementById('work-count').textContent = filtered.length + ' work' + (filtered.length !== 1 ? 's' : '');
   if (!filtered.length) { grid.innerHTML = '<div class="grid-message">No works match this filter.</div>'; return; }
@@ -538,6 +544,13 @@ function showPurchaseOptions() {
 
   const s = currentWork?.status || 'available';
 
+  // Digital works are unlimited and sell in every mode — always show the buttons.
+  if (s === 'digital') {
+    document.getElementById('btn-transfer').textContent = 'Buy by bank transfer';
+    document.getElementById('btn-desk').textContent = 'Buy at the desk';
+    return;
+  }
+
   // Closed gallery
   if (galleryMode === 'closed') {
     document.getElementById('purchase-section').style.display = 'none';
@@ -570,13 +583,22 @@ function showForm(type) {
   commitType = type;
   document.getElementById('purchase-section').style.display = 'none';
   document.getElementById('commit-form').classList.add('open');
+  const isDigital = currentWork?.status === 'digital';
   const pend = currentWork?.status === 'pending';
-  document.getElementById('form-title').textContent = pend
-    ? (type==='transfer' ? 'Join waitlist — bank transfer' : 'Join waitlist — pay at desk')
-    : (type==='transfer' ? 'Commit — bank transfer' : 'Commit — pay at desk');
+  document.getElementById('form-title').textContent = isDigital
+    ? (type==='transfer' ? 'Buy by bank transfer' : 'Buy at the desk')
+    : pend
+      ? (type==='transfer' ? 'Join waitlist — bank transfer' : 'Join waitlist — pay at desk')
+      : (type==='transfer' ? 'Commit — bank transfer' : 'Commit — pay at desk');
   const cbg = document.getElementById('transfer-checkbox-group');
   cbg.style.display = type==='transfer' ? 'flex' : 'none';
   document.getElementById('f-commit-check').required = type==='transfer';
+  if (type==='transfer') {
+    document.getElementById('commit-label').textContent = isDigital
+      ? 'I will transfer payment within 48 hours and send proof of payment so my download can be sent.'
+      : 'I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.';
+  }
+  document.getElementById('submit-btn').textContent = isDigital ? 'Submit order' : 'Submit commitment';
 }
 
 async function submitCommit(e) {
@@ -602,13 +624,19 @@ async function submitCommit(e) {
   } catch(err) { console.error(err); }
   document.getElementById('commit-form').classList.remove('open');
   document.getElementById('success-state').classList.add('open');
-  document.getElementById('success-body').innerHTML = success
-    ? (commitType==='transfer'
-        ? `Your commitment for <strong>${esc(currentWork.title||'this work')}</strong> has been received. A confirmation has been sent to your email. Conners Conners will be in touch with bank details.`
-        : `Your commitment to pay at the desk for <strong>${esc(currentWork.title||'this work')}</strong> has been received. A confirmation has been sent to your email.`)
-    : 'There was an issue submitting. Please speak to a volunteer.';
+  const isDigital = currentWork?.status === 'digital';
+  document.getElementById('success-title').textContent = !success ? 'Something went wrong' : (isDigital ? 'Order received.' : "You're in the queue.");
+  document.getElementById('success-body').innerHTML = !success
+    ? 'There was an issue submitting. Please speak to a volunteer.'
+    : isDigital
+      ? (commitType==='transfer'
+          ? `Your order for <strong>${esc(currentWork.title||'this download')}</strong> has been received, and a confirmation has been sent to your email. Please transfer payment within 48 hours and send proof of payment to the address in your confirmation email. Once it's confirmed, ${esc(currentWork.artist||'the artist')} will email your download.`
+          : `Your order for <strong>${esc(currentWork.title||'this download')}</strong> has been received, and a confirmation has been sent to your email. Pay at the sales desk, and once your payment is received, ${esc(currentWork.artist||'the artist')} will email your download.`)
+      : (commitType==='transfer'
+          ? `Your commitment for <strong>${esc(currentWork.title||'this work')}</strong> has been received. A confirmation has been sent to your email. Conners Conners will be in touch with bank details.`
+          : `Your commitment to pay at the desk for <strong>${esc(currentWork.title||'this work')}</strong> has been received. A confirmation has been sent to your email.`);
   e.target.reset();
-  btn.disabled=false; btn.textContent='Submit commitment';
+  btn.disabled=false; btn.textContent = isDigital ? 'Submit order' : 'Submit commitment';
 }
 
 function statusLabel(s) { return s==='sold'?'Sold':s==='pending'?'Pending':'Available'; }
