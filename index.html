@@ -3,644 +3,1047 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Conners Conners — Fundraiser 2026</title>
+<title>Volunteer Dashboard — Conners Conners</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --black: #0a0a0a;
-    --white: #ffffff;
-    --off-white: #f8f8f8;
-    --light-gray: #eeeeee;
-    --mid-gray: #999999;
-    --border: #e0e0e0;
-    --pending: #b07d3a;
-    --sold: #999999;
+    --black: #0a0a0a; --white: #ffffff; --off-white: #f8f8f8; --light-gray: #eeeeee;
+    --mid-gray: #999999; --border: #e0e0e0; --pending: #b07d3a; --pending-bg: #fdf3e3;
+    --available: #2d6a4f; --available-bg: #edf5f0; --sold: #999999;
+    --danger: #b03a3a; --danger-bg: #fdf0f0;
     --font: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   }
-  html { scroll-behavior: smooth; }
-  body { font-family: var(--font); background: var(--white); color: var(--black); min-height: 100vh; font-size: 14px; }
+  html, body { font-family: var(--font); background: var(--off-white); color: var(--black); font-size: 14px; min-height: 100vh; }
 
-  header { padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 48px; position: sticky; top: 0; background: var(--white); z-index: 100; border-bottom: 1px solid var(--border); }
-  .logo { font-size: 14px; font-weight: 700; color: var(--black); text-decoration: none; }
-  nav { display: flex; }
-  nav a { font-size: 13px; color: var(--mid-gray); text-decoration: none; padding: 0 14px; height: 48px; display: flex; align-items: center; border-left: 1px solid var(--border); transition: color 0.1s; }
-  nav a:hover { color: var(--black); }
-  nav a.active { color: var(--black); font-weight: 700; }
-  .nav-countdown { font-size: 13px; color: var(--black); padding: 0 14px; height: 48px; display: flex; align-items: center; border-left: 1px solid var(--border); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* LOGIN */
+  .login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: var(--white); }
+  .login-box { max-width: 340px; width: 100%; }
+  .login-box h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .login-box .sub { font-size: 12px; color: var(--mid-gray); margin-bottom: 24px; }
+  .field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); display: block; margin-bottom: 5px; }
+  .field-input { border: 1px solid var(--border); padding: 10px 12px; font-family: var(--font); font-size: 14px; background: var(--white); color: var(--black); outline: none; width: 100%; transition: border-color 0.1s; border-radius: 0; -webkit-appearance: none; }
+  .field-input:focus { border-color: var(--black); }
+  .login-error { font-size: 12px; color: var(--danger); margin: 8px 0; display: none; }
+  .btn { display: block; width: 100%; padding: 11px 16px; font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; border: 1px solid var(--black); background: var(--black); color: var(--white); text-align: center; margin-top: 12px; transition: background 0.1s; }
+  .btn:hover { background: #333; }
+  .btn-sm { font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 12px; border: 1px solid; cursor: pointer; transition: all 0.1s; background: transparent; }
+  .btn-sm-default { border-color: var(--border); color: var(--black); }
+  .btn-sm-default:hover { border-color: var(--black); }
+  .btn-sm-danger { border-color: var(--danger); color: var(--danger); }
+  .btn-sm-danger:hover { background: var(--danger-bg); }
 
-  .intro { padding: 40px 24px 32px; border-bottom: 1px solid var(--border); max-width: 600px; }
-  .intro-eyebrow { font-size: 12px; color: var(--mid-gray); margin-bottom: 8px; }
-  .intro h1 { font-size: clamp(34px, 7vw, 52px); font-weight: 700; line-height: 1.1; }
-  .intro p { font-size: 13px; line-height: 1.6; color: #444; }
+  /* DASHBOARD */
+  .dashboard { display: none; }
+  .dashboard.open { display: block; }
 
-  .buying-info { padding: 20px 24px; border-bottom: 1px solid var(--border); max-width: 600px; }
-  .buying-info p { font-size: 13px; line-height: 1.6; color: #444; }
-  .buying-info p + p { margin-top: 8px; }
+  header { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; height: 48px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .logo { font-size: 14px; font-weight: 700; color: var(--black); }
+  .header-tag { font-size: 11px; color: var(--mid-gray); margin-left: 10px; }
+  .role-pill { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; border: 1px solid; margin-left: 10px; }
+  .role-pill.role-volunteer { color: var(--mid-gray); border-color: var(--border); background: var(--light-gray); }
+  .role-pill.role-admin { color: var(--white); border-color: var(--black); background: var(--black); }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
 
-  .filter-bar { padding: 12px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
-  .filter-pills { display: flex; }
-  .pill { font-size: 12px; padding: 5px 14px; border: 1px solid var(--border); background: transparent; cursor: pointer; color: var(--mid-gray); margin-right: -1px; transition: all 0.1s; font-family: var(--font); }
-  .pill:hover { color: var(--black); border-color: var(--black); z-index: 1; position: relative; }
-  .pill.active { background: var(--black); color: var(--white); border-color: var(--black); z-index: 1; position: relative; }
-  .work-count { margin-left: auto; font-size: 12px; color: var(--mid-gray); }
+  .stats-bar { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; overflow-x: auto; }
+  .stat { padding: 14px 24px 14px 0; display: flex; flex-direction: column; gap: 2px; min-width: 80px; border-right: 1px solid var(--border); margin-right: 24px; }
+  .stat:last-child { border-right: none; }
+  .stat-value { font-size: 26px; font-weight: 700; line-height: 1; }
+  .stat-label { font-size: 11px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
 
-  .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-  .work-card { cursor: pointer; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); transition: background 0.1s; }
-  .work-card:hover { background: var(--off-white); }
-  .work-image-wrap { width: 100%; aspect-ratio: 4/3; overflow: hidden; background: var(--light-gray); display: flex; align-items: center; justify-content: center; }
-  .work-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .work-image-placeholder { font-size: 11px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
-  .work-info { padding: 12px 16px 16px; }
-  .work-artist { font-size: 13px; font-weight: 700; margin-bottom: 1px; }
-  .work-title { font-size: 13px; color: #444; margin-bottom: 2px; }
-  .work-represented { font-size: 11px; color: var(--mid-gray); margin-bottom: 8px; }
-  .work-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
-  .work-price { font-size: 13px; font-weight: 700; }
-  .status-badge { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; transition: color 0.3s; }
-  .status-available { color: var(--black); }
-  .status-digital { color: var(--black); }
-  .status-pending { color: var(--pending); }
-  .status-sold { color: var(--sold); }
-  @keyframes statusFlash { 0%{opacity:0.2} 50%{opacity:1} 100%{opacity:1} }
-  .status-changed { animation: statusFlash 0.6s ease-out; }
+  .controls { padding: 16px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--off-white); border-bottom: 1px solid var(--border); }
+  .search-input { border: 1px solid var(--border); background: var(--white); padding: 8px 12px; font-family: var(--font); font-size: 12px; outline: none; transition: border-color 0.1s; min-width: 200px; border-radius: 0; }
+  .search-input:focus { border-color: var(--black); }
+  .filter-select { border: 1px solid var(--border); background: var(--white); padding: 8px 12px; font-family: var(--font); font-size: 12px; outline: none; cursor: pointer; color: var(--black); border-radius: 0; -webkit-appearance: none; }
+  .close-all-btn { margin-left: auto; font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 8px 16px; border: 1px solid var(--danger); background: transparent; color: var(--danger); cursor: pointer; transition: all 0.1s; }
+  .close-all-btn:hover { background: var(--danger-bg); }
+  .admin-only { display: none; }
+  .dashboard.is-admin .admin-only { display: inline-block; }
+  .qr-btn { font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 8px 16px; border: 1px solid var(--border); background: var(--white); color: var(--black); cursor: pointer; transition: all 0.1s; }
+  .qr-btn:hover { border-color: var(--black); }
 
-  /* MODAL */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
-  .modal-overlay.open { display: flex; }
+  /* WORK LIST */
+  .work-list { padding: 20px 24px; display: flex; flex-direction: column; gap: 10px; }
+  .work-row { background: var(--white); border: 1px solid var(--border); overflow: hidden; }
+  .work-row.status-pending { border-left: 3px solid var(--pending); }
+  .work-row.status-sold { border-left: 3px solid var(--mid-gray); opacity: 0.65; }
+  .work-row.status-available { border-left: 3px solid var(--black); }
+  .work-row-header { padding: 14px 18px; display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 14px; cursor: pointer; user-select: none; }
+  .work-row-artist { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mid-gray); margin-bottom: 2px; }
+  .work-row-title { font-size: 14px; font-weight: 700; }
+  .work-row-meta { font-size: 11px; color: var(--mid-gray); margin-top: 2px; }
+  .work-row-price { font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .work-row-badges { display: flex; align-items: center; gap: 8px; }
+  .status-badge { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; white-space: nowrap; }
+  .badge-available { color: var(--black); }
+  .badge-pending { color: var(--pending); }
+  .badge-sold { color: var(--sold); }
+  .badge-digital { color: var(--black); }
+  .queue-count { font-size: 10px; background: var(--pending-bg); color: var(--pending); border: 1px solid var(--pending); padding: 2px 7px; white-space: nowrap; }
+  .chevron { font-size: 11px; color: var(--mid-gray); transition: transform 0.2s; }
+  .work-row.expanded .chevron { transform: rotate(180deg); }
 
-  /* VIP welcome overlay */
-  .vip-overlay { display: none; position: fixed; inset: 0; background: var(--white); z-index: 300; align-items: center; justify-content: center; padding: 32px 24px; cursor: pointer; opacity: 0; transition: opacity 0.4s ease; }
-  .vip-overlay.open { display: flex; opacity: 1; }
-  .vip-inner { text-align: center; max-width: 440px; width: 100%; }
-  .vip-eyebrow { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 10px; }
-  .vip-welcome { font-size: 26px; font-weight: 700; line-height: 1.2; color: var(--black); margin-bottom: 28px; }
-  .vip-image { margin-bottom: 18px; }
-  .vip-image img { max-width: 100%; max-height: 46vh; object-fit: contain; display: block; margin: 0 auto; }
-  .vip-artist { font-size: 14px; font-weight: 700; color: var(--black); margin-bottom: 2px; }
-  .vip-title { font-size: 13px; color: #444; margin-bottom: 28px; }
-  .vip-tap { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid-gray); }
-  .modal { background: var(--white); max-width: 820px; width: 100%; max-height: 92vh; overflow-y: auto; display: grid; grid-template-columns: 1.1fr 1fr; position: relative; }
-  @media (max-width: 600px) { .modal { grid-template-columns: 1fr; } nav a, .nav-countdown { padding: 0 10px; font-size: 12px; } }
-  .modal-image-panel { background: var(--light-gray); display: flex; align-items: center; justify-content: center; min-height: 320px; }
-  .modal-image-panel img { width: 100%; height: 100%; object-fit: contain; max-height: 480px; display: block; }
-  .modal-close { position: absolute; top: 12px; right: 12px; background: var(--white); border: 1px solid var(--border); width: 28px; height: 28px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; color: var(--black); z-index: 10; font-family: var(--font); }
-  .modal-content { padding: 32px 28px; display: flex; flex-direction: column; border-left: 1px solid var(--border); }
-  .modal-artist { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
-  .modal-represented { font-size: 11px; color: var(--mid-gray); margin-bottom: 8px; }
-  .modal-title { font-size: 14px; color: #444; margin-bottom: 12px; }
-  .modal-meta { font-size: 12px; color: var(--mid-gray); margin-bottom: 16px; line-height: 1.7; border-top: 1px solid var(--border); padding-top: 12px; }
-  .modal-price { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-  .modal-status { margin-bottom: 20px; }
+  .work-row-detail { display: none; border-top: 1px solid var(--border); background: var(--off-white); }
+  .work-row.expanded .work-row-detail { display: block; }
+  .detail-inner { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 
-  .purchase-section h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 10px; }
-  .purchase-options { display: flex; flex-direction: column; gap: 8px; }
-  .btn { display: block; width: 100%; padding: 11px 16px; font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; border: 1px solid var(--black); transition: all 0.1s; text-align: center; text-decoration: none; }
-  .btn-primary { background: var(--black); color: var(--white); }
-  .btn-primary:hover { background: #333; }
-  .btn-outline { background: transparent; color: var(--black); }
-  .btn-outline:hover { background: var(--off-white); }
-  .btn-disabled { background: var(--light-gray); color: var(--mid-gray); border-color: var(--border); cursor: not-allowed; }
-  .waitlist-note { font-size: 11px; color: var(--mid-gray); text-align: center; line-height: 1.6; margin-top: 8px; }
+  /* STATUS CONTROLS */
+  .status-controls { display: flex; flex-direction: column; gap: 8px; }
+  .status-controls h4 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 4px; }
+  .status-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .status-btn { font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 12px; border: 1px solid; background: var(--white); cursor: pointer; transition: all 0.1s; }
+  .status-btn-available { border-color: var(--black); color: var(--black); }
+  .status-btn-available:hover { background: var(--light-gray); }
+  .status-btn-pending { border-color: var(--pending); color: var(--pending); }
+  .status-btn-pending:hover { background: var(--pending-bg); }
+  .status-btn-sold { border-color: var(--sold); color: var(--sold); }
+  .status-btn-sold:hover { background: var(--light-gray); }
+  .status-btn-unsold { border-color: var(--danger); color: var(--danger); }
+  .status-btn-unsold:hover { background: var(--danger-bg); }
+  .status-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-  .commit-form { display: none; flex-direction: column; gap: 12px; }
-  .commit-form.open { display: flex; }
-  .form-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-  .form-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 4px; display: block; }
-  .form-group { display: flex; flex-direction: column; }
-  .form-group input { border: 1px solid var(--border); padding: 9px 10px; font-family: var(--font); font-size: 13px; background: var(--white); color: var(--black); outline: none; transition: border-color 0.1s; border-radius: 0; -webkit-appearance: none; }
-  .form-group input:focus { border-color: var(--black); }
-  .checkbox-group { display: flex; gap: 10px; align-items: flex-start; }
-  .checkbox-group input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--black); width: 14px; height: 14px; }
-  .checkbox-group label { font-size: 11px; color: var(--mid-gray); line-height: 1.6; }
-  .form-divider { height: 1px; background: var(--border); }
-  .form-back { background: none; border: none; font-size: 11px; color: var(--mid-gray); cursor: pointer; text-decoration: underline; text-align: left; padding: 0; font-family: var(--font); }
+  /* QUEUE */
+  .queue-section h4 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 10px; }
+  .queue-empty { font-size: 12px; color: var(--mid-gray); }
+  .queue-item { background: var(--white); border: 1px solid var(--border); padding: 12px 14px; display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: start; margin-bottom: 8px; }
+  .queue-position { font-size: 11px; color: var(--mid-gray); text-align: center; padding-top: 2px; font-weight: 700; }
+  .queue-position.first { color: var(--pending); }
+  .queue-buyer-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .queue-buyer-contact { font-size: 11px; color: var(--mid-gray); line-height: 1.7; }
+  .queue-buyer-type { font-size: 10px; padding: 2px 7px; border: 1px solid var(--border); color: var(--mid-gray); white-space: nowrap; align-self: start; text-transform: uppercase; letter-spacing: 0.04em; }
+  .queue-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .action-btn { font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 10px; border: 1px solid; background: var(--white); cursor: pointer; transition: all 0.1s; }
+  .action-btn-confirm { border-color: var(--available); color: var(--available); }
+  .action-btn-confirm:hover { background: var(--available-bg); }
+  .action-btn-expire { border-color: var(--pending); color: var(--pending); }
+  .action-btn-expire:hover { background: var(--pending-bg); }
+  .action-btn-withdraw { border-color: var(--mid-gray); color: var(--mid-gray); }
+  .action-btn-withdraw:hover { background: var(--light-gray); }
 
-  .success-state { display: none; flex-direction: column; gap: 10px; padding: 16px 0; }
-  .success-state.open { display: flex; }
-  .success-title { font-size: 15px; font-weight: 700; }
-  .success-body { font-size: 12px; color: #444; line-height: 1.6; }
+  /* CONFIRM MODAL */
+  .confirm-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 400; align-items: center; justify-content: center; padding: 20px; }
+  .confirm-overlay.open { display: flex; }
+  .confirm-box { background: var(--white); border: 1px solid var(--border); padding: 32px 28px; max-width: 380px; width: 100%; position: relative; z-index: 401; }
+  .confirm-box h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .confirm-box p { font-size: 12px; color: #444; line-height: 1.6; margin-bottom: 8px; }
+  .confirm-input-wrap { margin-bottom: 16px; }
+  .confirm-actions { display: flex; gap: 8px; }
+  .btn-full { flex: 1; padding: 10px; font-family: var(--font); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid; cursor: pointer; transition: all 0.1s; }
+  .btn-confirm-yes { background: var(--black); color: var(--white); border-color: var(--black); }
+  .btn-confirm-yes:hover { background: #333; }
+  .btn-confirm-no { background: transparent; color: var(--black); border-color: var(--border); }
+  .btn-confirm-no:hover { background: var(--off-white); }
 
-  .grid-message { grid-column: 1 / -1; padding: 80px 24px; text-align: center; font-size: 12px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
-  .error-banner { display: none; background: #fff8e1; border-bottom: 1px solid #ffe082; padding: 10px 24px; font-size: 12px; color: #7a5a00; }
-  footer { border-top: 1px solid var(--border); padding: 24px; font-size: 12px; color: var(--mid-gray); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  /* QR MODAL */
+  .qr-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; align-items: flex-start; justify-content: center; padding: 20px; overflow-y: auto; }
+  .qr-overlay.open { display: flex; }
+  .qr-panel { background: var(--white); max-width: 960px; width: 100%; margin: auto; }
+  .qr-panel-header { padding: 20px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .qr-panel-header h2 { font-size: 16px; font-weight: 700; }
+  .qr-panel-actions { display: flex; gap: 10px; }
+  .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1px; background: var(--border); }
+  .qr-item { background: var(--white); padding: 20px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+  .qr-item canvas { display: block; }
+  .qr-item-artist { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mid-gray); }
+  .qr-item-title { font-size: 12px; font-weight: 700; line-height: 1.3; }
+  .qr-item-price { font-size: 11px; color: var(--mid-gray); }
+  .qr-item-id { font-size: 10px; color: var(--light-gray); font-family: monospace; }
+  .qr-index-item { background: var(--off-white); border: 2px solid var(--black); }
+
+  .status-bar { background: var(--white); border-top: 1px solid var(--border); padding: 10px 24px; font-size: 11px; color: var(--mid-gray); display: flex; align-items: center; gap: 8px; position: sticky; bottom: 0; }
+  .pulse { display: inline-block; width: 6px; height: 6px; background: var(--available); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* TIMER WARNINGS */
+  .timer-warnings { padding: 0 24px 4px; display: flex; flex-direction: column; gap: 8px; }
+  .timer-warning-banner {
+    background: var(--pending-bg); border: 1px solid var(--pending);
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .timer-warning-banner.paused { background: var(--off-white); border-color: var(--border); }
+  .timer-warning-text { font-size: 12px; color: var(--pending); flex: 1; min-width: 200px; font-weight: 700; }
+  .timer-warning-banner.paused .timer-warning-text { color: var(--mid-gray); }
+  .timer-countdown { font-family: var(--font); font-size: 11px; color: var(--pending); white-space: nowrap; }
+  .timer-btn { font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 5px 10px; border: 1px solid; cursor: pointer; background: var(--white); transition: all 0.1s; white-space: nowrap; }
+  .timer-btn-extend { border-color: var(--available); color: var(--available); }
+  .timer-btn-extend:hover { background: var(--available-bg); }
+  .timer-btn-pause { border-color: var(--pending); color: var(--pending); }
+  .timer-btn-pause:hover { background: var(--pending-bg); }
+  .timer-btn-unpause { border-color: var(--black); color: var(--black); }
+  .timer-btn-unpause:hover { background: var(--light-gray); }
+
+  /* PROMOTED INDICATOR on queue item */
+  .promoted-badge { font-size: 10px; background: var(--available-bg); color: var(--available); border: 1px solid var(--available); padding: 2px 7px; white-space: nowrap; margin-left: 6px; }
+
+  /* ADMIN PANELS */
+  .admin-panels { padding: 0 24px 12px; display: flex; flex-direction: column; gap: 12px; }
+  .admin-panel { border: 1px solid var(--border); background: var(--white); }
+  .admin-panel-header { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+  .admin-panel-header h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mid-gray); }
+  .admin-panel-body { padding: 16px; display: none; }
+  .admin-panel.open .admin-panel-body { display: block; }
+  .admin-panel.open .admin-panel-header { border-bottom: 1px solid var(--border); }
+
+  .mode-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+  .mode-badge { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 10px; border: 1px solid; }
+  .mode-badge-browse_only { border-color: var(--pending); color: var(--pending); background: var(--pending-bg); }
+  .mode-badge-vip_window { border-color: var(--available); color: var(--available); background: var(--pending-bg); }
+  .mode-badge-live { border-color: var(--available); color: var(--available); background: var(--available-bg); }
+  .mode-badge-closed { border-color: var(--mid-gray); color: var(--mid-gray); background: var(--light-gray); }
+  .mode-btn { font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 12px; border: 1px solid var(--black); background: var(--white); color: var(--black); cursor: pointer; transition: all 0.1s; }
+  .mode-btn:hover { background: var(--light-gray); }
+  .mode-btn-live { border-color: var(--available); color: var(--available); }
+  .mode-btn-live:hover { background: var(--available-bg); }
+  .mode-btn-closed { border-color: var(--danger); color: var(--danger); }
+  .mode-btn-closed:hover { background: var(--danger-bg); }
+  .schedule-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .schedule-row label { font-size: 11px; color: var(--mid-gray); white-space: nowrap; }
+  .schedule-input { border: 1px solid var(--border); background: var(--white); padding: 6px 10px; font-family: var(--font); font-size: 12px; outline: none; flex: 1; min-width: 180px; }
+  .schedule-input:focus { border-color: var(--black); }
+
+  .vip-btn { font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 10px; border: 1px solid; background: var(--white); cursor: pointer; white-space: nowrap; }
+  .vip-btn-accept { border-color: var(--available); color: var(--available); }
+  .vip-btn-accept:hover { background: var(--available-bg); }
+  .vip-btn-decline { border-color: var(--mid-gray); color: var(--mid-gray); }
+  .vip-btn-decline:hover { background: var(--light-gray); }
+
+  /* VIP LIST (step 7) */
+  .vip-list-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .vip-list-toolbar input[type="text"] { border: 1px solid var(--border); background: var(--white); padding: 6px 10px; font-family: var(--font); font-size: 12px; outline: none; min-width: 140px; }
+  .vip-list-toolbar input[type="text"]:focus { border-color: var(--black); }
+  .vip-list-toolbar input[type="file"] { font-size: 11px; }
+  .vip-list-toolbar .export-btn { margin-left: auto; }
+  .vip-list-status { font-size: 11px; color: var(--mid-gray); margin-bottom: 12px; min-height: 14px; }
+  .vip-list-status.success { color: var(--available); }
+  .vip-list-status.error { color: var(--danger); }
+  .vip-row { display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .vip-row:last-child { border-bottom: none; }
+  .vip-row.inactive { opacity: 0.55; }
+  .vip-row-name { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .vip-row-contact { font-size: 11px; color: var(--mid-gray); word-break: break-word; }
+  .vip-row-attribution { font-size: 11px; color: var(--mid-gray); margin-top: 2px; font-style: italic; }
+  .vip-row-actions { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .vip-toggle { display: flex; align-items: center; gap: 5px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--mid-gray); cursor: pointer; white-space: nowrap; }
+  .vip-toggle input { cursor: pointer; }
+  .vip-action-feedback { font-size: 10px; color: var(--available); white-space: nowrap; opacity: 0; transition: opacity 0.2s; min-width: 50px; }
+  .vip-action-feedback.show { opacity: 1; }
+  .vip-action-feedback.error { color: var(--danger); }
+
+  /* PHASE BANNER (step 8) */
+  .phase-banner { padding: 12px 18px; margin: 12px 24px 0; border-left: 3px solid; font-size: 12px; line-height: 1.5; }
+  .phase-banner-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .phase-banner-browse_only { background: var(--pending-bg); border-color: var(--pending); color: #5a3e1d; }
+  .phase-banner-browse_only .phase-banner-title { color: var(--pending); }
+  .phase-banner-vip_window { background: var(--pending-bg); border-color: var(--available); color: #1d4a35; }
+  .phase-banner-vip_window .phase-banner-title { color: var(--available); }
+  .phase-banner-closed { background: var(--light-gray); border-color: var(--mid-gray); color: #555; }
+  .phase-banner-closed .phase-banner-title { color: var(--mid-gray); }
+
+  @media print {
+    .dashboard > *:not(.qr-overlay) { display: none !important; }
+    .qr-overlay { position: static; display: block !important; background: none; padding: 0; }
+    .qr-panel { max-width: 100%; box-shadow: none; }
+    .qr-panel-header, .qr-panel-actions { display: none !important; }
+    .qr-grid { gap: 0; }
+    .qr-item { break-inside: avoid; border: 1px solid #ddd; }
+  }
+
+  @media (max-width: 600px) {
+    header { padding: 0 16px; }
+    .stats-bar { padding: 0 16px; }
+    .controls { padding: 12px 16px; }
+    .work-list { padding: 12px 16px; }
+    .work-row-header { grid-template-columns: 1fr auto; }
+    .work-row-price { display: none; }
+  }
 </style>
 </head>
 <body>
 
-<header>
-  <a href="index.html" class="logo">Conners Conners</a>
-  <nav>
-    <span class="nav-countdown" id="nav-countdown" style="display:none"></span>
-    <a href="index.html" class="active">Works</a>
-    <a href="artists.html">Artists</a>
-  </nav>
-</header>
-
-<div class="error-banner" id="error-banner">Unable to load works — check your connection and refresh.</div>
-
-<div id="mode-banner" style="display:none;background:#fdf3e3;border-bottom:1px solid #e8c97a;padding:12px 24px;font-size:13px;color:#7a5a00;text-align:center"></div>
-
-<div id="countdown-section" style="display:none;background:#0a0a0a;color:#fff;padding:16px 24px;text-align:center">
-  <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.6;margin-bottom:4px">Gallery opens</div>
-  <div id="countdown-timer" style="font-size:22px;font-weight:700;letter-spacing:0.04em">Opening soon</div>
-</div>
-
-<!-- VIP code entry UI removed at step 9 -->
-
-<section class="intro">
-  <h1>Fundraiser 2026</h1>
-</section>
-
-<section class="buying-info">
-  <p>Pay at the desk, or by bank transfer.</p>
-  <p>Confirm your purchase with a gallery representative within 30 minutes, or the work is released to the next buyer.</p>
-  <p>Once confirmed in person, bank transfers can be completed within 48 hours.</p>
-</section>
-
-<div class="filter-bar">
-  <div class="filter-pills">
-    <button class="pill active" data-filter="all">All</button>
-    <button class="pill" data-filter="available">Available</button>
-    <button class="pill" data-filter="pending">Pending</button>
-    <button class="pill" data-filter="sold">Sold</button>
+<!-- LOGIN -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <h1>Conners Conners</h1>
+    <p class="sub">Volunteer dashboard — Fundraiser 2026</p>
+    <label class="field-label">Password</label>
+    <input type="password" class="field-input" id="password-input" placeholder="Enter password"
+           onkeydown="if(event.key==='Enter'){event.preventDefault();attemptLogin();}">
+    <div class="login-error" id="login-error">Incorrect password.</div>
+    <button class="btn" type="button" onclick="attemptLogin()">Sign in</button>
   </div>
-  <span class="work-count" id="work-count"></span>
 </div>
 
-<main class="gallery-grid" id="gallery-grid">
-  <div class="grid-message">Loading works…</div>
-</main>
-
-<footer>
-  <span>Conners Conners Gallery</span>
-  <span id="footer-year"></span>
-</footer>
-
-<!-- MODAL -->
-<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modal-image-panel">
-      <span class="work-image-placeholder" id="modal-img-placeholder">No image</span>
-      <img id="modal-img" src="" alt="" style="display:none">
+<!-- DASHBOARD -->
+<div class="dashboard" id="dashboard">
+  <header>
+    <div style="display:flex;align-items:center">
+      <span class="logo">Conners Conners</span>
+      <span class="role-pill role-volunteer" id="role-tag">Volunteer</span>
     </div>
-    <div class="modal-content">
-      <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
-      <p class="modal-artist" id="modal-artist"></p>
-      <p class="modal-represented" id="modal-represented" style="display:none"></p>
-      <p class="modal-title" id="modal-title"></p>
-      <div class="modal-meta" id="modal-meta"></div>
-      <div class="modal-price" id="modal-price"></div>
-      <div class="modal-status" id="modal-status"></div>
+    <div class="header-actions">
+      <button class="btn-sm btn-sm-default" onclick="loadWorks()">↻ Refresh</button>
+      <button class="btn-sm btn-sm-danger admin-only" onclick="confirmCloseAll()">Close all sales</button>
+      <button class="btn-sm btn-sm-default" onclick="logout()">Sign out</button>
+    </div>
+  </header>
 
-      <div class="purchase-section" id="purchase-section">
-        <h3>Purchase this work</h3>
-        <div class="purchase-options">
-          <button class="btn btn-primary" id="btn-transfer" onclick="showForm('transfer')">Commit — bank transfer</button>
-          <button class="btn btn-outline" id="btn-desk" onclick="showForm('desk')">Commit — pay at desk</button>
+  <div class="stats-bar">
+    <div class="stat"><span class="stat-value" id="stat-total">—</span><span class="stat-label">Total</span></div>
+    <div class="stat"><span class="stat-value" id="stat-available">—</span><span class="stat-label">Available</span></div>
+    <div class="stat"><span class="stat-value" id="stat-pending" style="color:var(--pending)">—</span><span class="stat-label">Pending</span></div>
+    <div class="stat"><span class="stat-value" id="stat-sold" style="color:var(--mid-gray)">—</span><span class="stat-label">Sold</span></div>
+
+  </div>
+
+  <div class="controls">
+    <input class="search-input" id="search-input" type="search" placeholder="Search artist or title…" oninput="renderList()">
+    <select class="filter-select" id="filter-select" onchange="renderList()">
+      <option value="all">All works</option>
+      <option value="available">Available</option>
+      <option value="pending">Pending</option>
+      <option value="sold">Sold</option>
+    </select>
+    <button class="qr-btn" onclick="openQRPanel()">⊞ QR codes</button>
+    <button class="close-all-btn admin-only" onclick="confirmCloseAll()">⚠ Close all sales</button>
+  </div>
+
+  <div class="phase-banner" id="phase-banner" style="display:none"></div>
+
+  <div class="timer-warnings" id="timer-warnings"></div>
+
+  <!-- ADMIN PANELS (shown only when logged in as admin) -->
+  <div class="admin-panels" id="admin-panels" style="display:none">
+
+    <!-- Gallery mode control -->
+    <div class="admin-panel" id="panel-mode">
+      <div class="admin-panel-header" onclick="toggleAdminPanel('panel-mode')">
+        <h3>Gallery mode</h3>
+        <span id="mode-badge-header" class="mode-badge mode-badge-browse_only">Browse only</span>
+      </div>
+      <div class="admin-panel-body">
+        <div class="mode-row">
+          <button class="mode-btn" onclick="setMode('browse_only')">Browse only</button>
+          <button class="mode-btn" onclick="setMode('vip_window')">VIP window</button>
+          <button class="mode-btn mode-btn-live" onclick="setMode('live')">Go live</button>
+          <button class="mode-btn mode-btn-closed" onclick="setMode('closed')">Close gallery</button>
+        </div>
+        <div class="schedule-row">
+          <label>Schedule VIP window:</label>
+          <input type="datetime-local" class="schedule-input" id="schedule-vip-window-input">
+          <button class="mode-btn" onclick="scheduleTransition('vip_window')">Schedule</button>
+          <button class="mode-btn" onclick="cancelTransition('vip_window')">Cancel</button>
+        </div>
+        <p style="font-size:11px;color:var(--mid-gray);margin-top:6px" id="schedule-vip-window-status"></p>
+        <div class="schedule-row">
+          <label>Schedule go-live:</label>
+          <input type="datetime-local" class="schedule-input" id="schedule-live-input">
+          <button class="mode-btn mode-btn-live" onclick="scheduleTransition('live')">Schedule</button>
+          <button class="mode-btn" onclick="cancelTransition('live')">Cancel</button>
+        </div>
+        <p style="font-size:11px;color:var(--mid-gray);margin-top:6px" id="schedule-live-status"></p>
+      </div>
+    </div>
+
+    <!-- VIP list (step 7) -->
+    <div class="admin-panel" id="panel-vip-list">
+      <div class="admin-panel-header" onclick="toggleAdminPanel('panel-vip-list')">
+        <h3>VIP list</h3>
+        <span id="vip-list-count" style="font-size:11px;color:var(--mid-gray)">Loading…</span>
+      </div>
+      <div class="admin-panel-body">
+        <div class="vip-list-toolbar">
+          <input type="file" id="vip-csv-input" accept=".csv,text/csv">
+          <input type="text" id="vip-batch-input" placeholder="Batch label (optional)">
+          <button class="mode-btn" onclick="importVipCsv()">Import CSV</button>
+          <button class="mode-btn export-btn" onclick="exportVipCsv()">Download CSV with tokens</button>
+        </div>
+        <div class="vip-list-status" id="vip-list-status"></div>
+        <div id="vip-list-rows">
+          <p style="font-size:12px;color:var(--mid-gray)">Loading VIPs…</p>
         </div>
       </div>
+    </div>
 
-      <form class="commit-form" id="commit-form" onsubmit="submitCommit(event)">
-        <div class="form-section-title" id="form-title">Commit to purchase</div>
-        <div class="form-group">
-          <label class="form-label">Full name</label>
-          <input type="text" id="f-name" required placeholder="Your name">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Email</label>
-          <input type="email" id="f-email" required placeholder="your@email.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Phone</label>
-          <input type="tel" id="f-phone" required placeholder="04xx xxx xxx">
-        </div>
-        <div class="form-divider"></div>
-        <div class="checkbox-group" id="transfer-checkbox-group" style="display:none">
-          <input type="checkbox" id="f-commit-check">
-          <label for="f-commit-check" id="commit-label">I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.</label>
-        </div>
-        <button type="submit" class="btn btn-primary" id="submit-btn">Submit commitment</button>
-        <button type="button" class="form-back" onclick="showPurchaseOptions()">← Back</button>
-      </form>
+  </div>
 
-      <div class="success-state" id="success-state">
-        <div class="success-title" id="success-title">You're in the queue.</div>
-        <div class="success-body" id="success-body"></div>
-        <button class="btn btn-outline" onclick="closeModal()" style="width:auto;padding:9px 20px;margin-top:4px">Close</button>
-      </div>
+  <div class="work-list" id="work-list">
+    <p style="font-size:12px;color:var(--mid-gray);padding:20px 0">Loading works…</p>
+  </div>
 
-      <div id="sold-state" style="display:none">
-        <p class="waitlist-note">This work has been sold.</p>
-      </div>
+  <div class="status-bar">
+    <span class="pulse"></span>
+    <span id="last-updated">Auto-refreshes every 15 seconds</span>
+  </div>
+</div>
 
+<!-- CONFIRM MODAL -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <h3 id="confirm-title">Confirm action</h3>
+    <p id="confirm-body"></p>
+    <div class="confirm-input-wrap" id="confirm-input-wrap" style="display:none">
+      <label class="field-label" style="margin-top:8px">Admin password required</label>
+      <input type="password" class="field-input" id="confirm-admin-pwd" placeholder="Enter admin password"
+             onkeydown="if(event.key==='Enter'){event.preventDefault();executePending();}">
+      <div style="font-size:11px;color:var(--danger);margin-top:6px;display:none" id="admin-pwd-error">Incorrect admin password.</div>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn-full btn-confirm-yes" id="confirm-yes-btn">Confirm</button>
+      <button class="btn-full btn-confirm-no" id="confirm-no-btn">Cancel</button>
     </div>
   </div>
 </div>
 
-<!-- VIP welcome overlay -->
-<div class="vip-overlay" id="vip-overlay" role="dialog" aria-modal="true" aria-label="VIP welcome">
-  <div class="vip-inner">
-    <div class="vip-eyebrow">VIP access</div>
-    <div class="vip-welcome" id="vip-welcome"></div>
-    <div class="vip-image" id="vip-image"><img id="vip-img" alt=""></div>
-    <div class="vip-artist" id="vip-artist"></div>
-    <div class="vip-title" id="vip-title"></div>
-    <div class="vip-tap">Tap anywhere to enter</div>
+<!-- QR CODE PANEL -->
+<div class="qr-overlay" id="qr-overlay">
+  <div class="qr-panel">
+    <div class="qr-panel-header">
+      <h2>QR codes</h2>
+      <div class="qr-panel-actions">
+        <button class="qr-btn" onclick="window.print()">Print all</button>
+        <button class="qr-btn" onclick="closeQRPanel()">Close</button>
+      </div>
+    </div>
+    <div class="qr-grid" id="qr-grid"></div>
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbwm1RTBH6_pfJgPmzQApy4FbOFqQJmwVOAgpdzrS-45Yp_j88qRJyZnBeCX-5ovgaR8/exec';
-const POLL_INTERVAL = 15000;
+const VOLUNTEER_PASSWORD = 'PORTICO2019';  // change before event
+const ADMIN_PASSWORD = 'CABOOSE2026';           // change before event — required for Sold → Available
+const AUTO_REFRESH = 15000;
 
-let allWorks = [], currentWork = null, currentFilter = 'all', commitType = '';
-let galleryMode = 'browse_only', countdownTimer = null;
-let schedVipWindow = '', schedLive = '';
+// Public gallery base URL — update if your GitHub Pages URL changes
+const GALLERY_URL = 'https://connersconners.github.io/CCFundraiser2026/index.html';
 
-// VIP token state (step 3, frontend token detection)
-let vipToken = '';
-let tokenValid = false;
-let vipInfo = null;
-let previewMode = false;
+let allWorks = [], refreshTimer = null, pendingAction = null, isAdmin = false, allTimers = [], galleryMode = 'browse_only';
 
-// Detect VIP token from URL (step 3)
-const urlParams = new URLSearchParams(window.location.search);
-vipToken = urlParams.get('token') || '';
-const previewKey = urlParams.get('preview') || '';
+// ---- AUTH ----
+function attemptLogin() {
+  const pwd = document.getElementById('password-input').value;
+  if (pwd === VOLUNTEER_PASSWORD || pwd === ADMIN_PASSWORD) {
+    isAdmin = (pwd === ADMIN_PASSWORD);
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').classList.add('open');
+    const roleTag = document.getElementById('role-tag');
+    roleTag.textContent = isAdmin ? 'Admin' : 'Volunteer';
+    roleTag.className = isAdmin ? 'role-pill role-admin' : 'role-pill role-volunteer';
+    document.getElementById('admin-panels').style.display = isAdmin ? 'flex' : 'none';
+    document.getElementById('dashboard').classList.toggle('is-admin', isAdmin);
+    loadWorks();
+    refreshTimer = setInterval(loadWorks, AUTO_REFRESH);
+  } else {
+    document.getElementById('login-error').style.display = 'block';
+    document.getElementById('password-input').value = '';
+    document.getElementById('password-input').focus();
+  }
+}
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('footer-year').textContent = new Date().getFullYear();
-  loadWorks();
-  document.querySelectorAll('.pill').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.pill').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentFilter = btn.dataset.filter;
-      renderGrid();
-    });
-  });
-  document.getElementById('modal-overlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('modal-overlay')) closeModal();
-  });
-  document.getElementById('modal-close').addEventListener('click', closeModal);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-  // VIP welcome tap-to-dismiss
-  document.getElementById('vip-overlay').addEventListener('click', dismissVip);
-  setInterval(pollStatus, POLL_INTERVAL);
-  setInterval(tickNavCountdown, 1000);
-});
+function logout() {
+  clearInterval(refreshTimer);
+  document.getElementById('dashboard').classList.remove('open');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('password-input').value = '';
+  isAdmin = false;
+  document.getElementById('dashboard').classList.remove('is-admin');
+}
 
+// ---- DATA ----
 async function loadWorks() {
   try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
-    const res = await fetch(url);
+    const pwd = isAdmin ? ADMIN_PASSWORD : VOLUNTEER_PASSWORD;
+    const res = await fetch(SHEET_API_URL + '?action=getWorksAdmin&pwd=' + encodeURIComponent(pwd));
     const data = await res.json();
-    if (data.works && data.works.length > 0) {
+    if (data.works) {
       allWorks = data.works.filter(w => w.id && (w.artist || w.title));
-      tokenValid = data.tokenValid === true;
-      vipInfo = data.vipInfo || null;
-      previewMode = data.preview === true;
-      schedVipWindow = data.scheduledVipWindow || '';
-      schedLive = data.scheduledLive || '';
-      if (data.mode) { galleryMode = data.mode; applyGalleryMode(); }
-      maybeShowVip();
-      tickNavCountdown();
-      renderGrid();
-      handleHashLink();
-      return;
+      allTimers = data.timers || [];
+      galleryMode = data.mode || 'browse_only';
+      renderList(); updateStats(); renderTimerWarnings(); updateModeDisplay();
+      if (isAdmin) { loadVipList(); }
+      document.getElementById('last-updated').textContent =
+        'Updated ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }
-  } catch(e) { document.getElementById('error-banner').style.display = 'block'; }
-  allWorks = [{ id: 'w001', artist: 'Ry Haskings', title: 'Rolpanel Nova Kickback', status: 'available', imageUrl: '', price: '', representedBy: 'Conners Conners' }];
-  renderGrid();
-  handleHashLink();
+  } catch(e) { console.error('Refresh failed', e); }
 }
 
-// VIP welcome — minimal presentation of one random available work
-function maybeShowVip() {
-  if (!tokenValid || !vipInfo) return;
-  const seenKey = 'cc_vip_welcome_seen_' + vipToken;
-  if (sessionStorage.getItem(seenKey)) return;
-  document.getElementById('vip-welcome').textContent = 'Welcome, ' + (vipInfo.name || 'guest');
-
-  // Random available work that has an image
-  const pool = allWorks.filter(w => w.status === 'available' && w.imageUrl);
-  const pick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
-  const imageWrap = document.getElementById('vip-image');
-  if (pick) {
-    const img = document.getElementById('vip-img');
-    img.src = pick.imageUrl;
-    img.alt = (pick.title || 'Artwork') + (pick.artist ? ' by ' + pick.artist : '');
-    document.getElementById('vip-artist').textContent = pick.artist || 'Unknown artist';
-    document.getElementById('vip-title').textContent = pick.title || '';
-    imageWrap.style.display = 'block';
-  } else {
-    imageWrap.style.display = 'none';
-  }
-
-  document.getElementById('vip-overlay').classList.add('open');
-}
-
-function dismissVip() {
-  sessionStorage.setItem('cc_vip_welcome_seen_' + vipToken, '1');
-  document.getElementById('vip-overlay').classList.remove('open');
-}
-
-// Header countdown — shows within 30 min of the next relevant transition
-function navCountdownTarget() {
-  let targetStr = '', label = '';
-  if (galleryMode === 'browse_only') {
-    if (tokenValid && schedVipWindow) { targetStr = schedVipWindow; label = 'VIP access in'; }
-    else if (schedLive) { targetStr = schedLive; label = 'Live in'; }
-  } else if (galleryMode === 'vip_window') {
-    if (schedLive) { targetStr = schedLive; label = 'Live in'; }
-  }
-  if (!targetStr) return null;
-  const t = new Date(targetStr).getTime();
-  if (isNaN(t)) return null;
-  return { target: t, label };
-}
-
-function tickNavCountdown() {
-  const el = document.getElementById('nav-countdown');
-  if (!el) return;
-  const c = navCountdownTarget();
-  if (!c) { el.style.display = 'none'; return; }
-  const msLeft = c.target - Date.now();
-  if (msLeft <= 0 || msLeft > 30 * 60000) { el.style.display = 'none'; return; }
-  const totalSec = Math.floor(msLeft / 1000);
-  const mm = Math.floor(totalSec / 60);
-  const ss = String(totalSec % 60).padStart(2, '0');
-  el.textContent = c.label + ' ' + mm + ':' + ss;
-  el.style.display = 'flex';
-}
-
-function applyGalleryMode() {
-  // Phase-aware UI (step 5)
-  // - browse_only: banner shown, commits hidden, prices hidden (also stripped by backend)
-  // - vip_window + tokenValid: VIP banner, commits enabled, prices visible
-  // - vip_window + !tokenValid: same as browse_only (public sees no movement)
-  // - live: standard view, no banner
-  // - closed: closed banner, commits hidden
-  const isBrowse  = galleryMode === 'browse_only';
-  const isVipWin  = galleryMode === 'vip_window';
-  const isClosed  = galleryMode === 'closed';
-  const banner    = document.getElementById('mode-banner');
-  const countdownEl = document.getElementById('countdown-section');
-
-  if (isBrowse) {
-    banner.style.display = 'block';
-    banner.textContent = 'Browse mode. Purchases open at the event.';
-    if (countdownEl) countdownEl.style.display = 'block';
-    startCountdown();
-  } else if (isVipWin) {
-    banner.style.display = 'block';
-    if (tokenValid) {
-      banner.textContent = 'VIP early access. Public sales open shortly.';
-    } else {
-      banner.textContent = 'Purchases open shortly. Browse the catalogue now.';
-    }
-    if (countdownEl) countdownEl.style.display = 'block';
-    startCountdown();
-  } else if (isClosed) {
-    banner.style.display = 'block';
-    banner.textContent = 'Sales are now closed. Thank you for joining us!';
-    if (countdownEl) countdownEl.style.display = 'none';
-  } else {
-    banner.style.display = 'none';
-    if (countdownEl) countdownEl.style.display = 'none';
-    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
-  }
-}
-
-function startCountdown() {
-  const el = document.getElementById('countdown-timer');
-  if (!el) return;
-  if (countdownTimer) clearInterval(countdownTimer);
-  function tick() {
-    // Countdown target stored in meta tag — set by admin via scheduled launch time
-    // For now show a placeholder until launch time is available from Config
-    el.textContent = 'Opening soon';
-  }
-  tick();
-  countdownTimer = setInterval(tick, 1000);
-}
-
-// Price visibility — hidden in browse_only, hidden in vip_window for public (no token)
-function showPrice(work) {
-  if (work && work.status === 'digital') return true;
-  if (previewMode) return true;
-  if (galleryMode === 'browse_only') return false;
-  if (galleryMode === 'vip_window' && !tokenValid) return false;
-  return true;
-}
-
-// Deep linking — open modal if URL has #w001 etc.
-function handleHashLink() {
-  const hash = window.location.hash.replace('#', '');
-  if (hash && allWorks.find(w => w.id === hash)) openWork(hash);
-}
-
-async function pollStatus() {
+async function sendAction(payload, pwdOverride) {
   try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.works) return;
-    // Re-validate token on every poll (curator may have revoked mid-session)
-    tokenValid = data.tokenValid === true;
-    vipInfo = data.vipInfo || null;
-    previewMode = data.preview === true;
-    schedVipWindow = data.scheduledVipWindow || '';
-    schedLive = data.scheduledLive || '';
-    if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderGrid(); }
-    const fresh = data.works.filter(w => w.id && (w.artist || w.title));
-    fresh.forEach(fw => {
-      const existing = allWorks.find(w => w.id === fw.id);
-      if (!existing || existing.status === fw.status) return;
-      existing.status = fw.status;
-      document.querySelectorAll(`[data-work-id="${fw.id}"] .status-badge`).forEach(badge => {
-        badge.className = `status-badge status-${fw.status}`;
-        badge.textContent = statusLabel(fw.status);
-        badge.classList.add('status-changed');
-        setTimeout(() => badge.classList.remove('status-changed'), 700);
-      });
-      if (currentWork && currentWork.id === fw.id) {
-        currentWork.status = fw.status;
-        document.getElementById('modal-status').innerHTML = `<span class="status-badge status-${fw.status}">${statusLabel(fw.status)}</span>`;
-        if (fw.status === 'sold') {
-          document.getElementById('purchase-section').style.display = 'none';
-          document.getElementById('commit-form').classList.remove('open');
-          document.getElementById('sold-state').style.display = 'block';
-        }
-      }
+    const res = await fetch(SHEET_API_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({...payload, pwd: pwdOverride || (isAdmin ? ADMIN_PASSWORD : VOLUNTEER_PASSWORD)}),
     });
-    const hasNew = fresh.some(fw => !allWorks.find(w => w.id === fw.id));
-    if (hasNew) { allWorks = fresh; renderGrid(); }
-  } catch(e) {}
+    const data = await res.json();
+    if (data.works) {
+      allWorks = data.works.filter(w => w.id && (w.artist || w.title));
+      allTimers = data.timers || allTimers;
+      renderList(); updateStats(); renderTimerWarnings();
+    }
+    return data;
+  } catch(e) { console.error('Action failed', e); return { success: false }; }
 }
 
-function worknum(w) { const m = String(w.id || '').match(/\d+/); return m ? parseInt(m[0], 10) : Infinity; }
+// ---- RENDER ----
+function renderList() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const filter = document.getElementById('filter-select').value;
+  let works = allWorks.filter(w => {
+    const mf = filter === 'all' || w.status === filter;
+    const ms = !search || (w.artist||'').toLowerCase().includes(search) || (w.title||'').toLowerCase().includes(search);
+    return mf && ms;
+  });
+  works.sort((a,b) => {
+    const o = {pending:0, available:1, sold:2, digital:3};
+    if (o[a.status] !== o[b.status]) return o[a.status] - o[b.status];
+    return (b.queue?.length||0) - (a.queue?.length||0);
+  });
+  const list = document.getElementById('work-list');
+  if (!works.length) { list.innerHTML = '<p style="font-size:12px;color:var(--mid-gray);padding:20px 0">No works match.</p>'; return; }
+  list.innerHTML = works.map(w => buildRow(w)).join('');
+}
 
-function renderGrid() {
-  const grid = document.getElementById('gallery-grid');
-  const filtered = (currentFilter === 'all'
-      ? allWorks
-      : allWorks.filter(w => currentFilter === 'available'
-          ? (w.status === 'available' || w.status === 'digital')
-          : w.status === currentFilter))
-    .slice().sort((a, b) => worknum(a) - worknum(b));
-  document.getElementById('work-count').textContent = filtered.length + ' work' + (filtered.length !== 1 ? 's' : '');
-  if (!filtered.length) { grid.innerHTML = '<div class="grid-message">No works match this filter.</div>'; return; }
-  grid.innerHTML = filtered.map(w => `
-    <article class="work-card" data-work-id="${w.id}" onclick="openWork('${w.id}')">
-      <div class="work-image-wrap">
-        ${w.imageUrl ? `<img src="${esc(w.imageUrl)}" alt="${esc(w.title||'')}" loading="lazy">` : '<span class="work-image-placeholder">No image</span>'}
-      </div>
-      <div class="work-info">
-        <div class="work-artist">${esc(w.artist||'Unknown artist')}</div>
-        <div class="work-title">${esc(w.title||'Untitled')}</div>
-        ${w.representedBy ? `<div class="work-represented">Rep. ${esc(w.representedBy)}</div>` : ''}
-        <div class="work-footer">
-          <span class="work-price">${showPrice(w) && w.price ? '$'+Number(w.price).toLocaleString() : ''}</span>
-          <span class="status-badge status-${w.status||'available'}">${statusLabel(w.status)}</span>
+function buildRow(w) {
+  const qLen = w.queue?.length || 0;
+  const s = w.status || 'available';
+
+  // Digital works are unlimited and need no confirmation here. Render a flat row
+  // with no status buttons and no queue, so volunteers can't accidentally mark it
+  // sold (which would stop it selling). Buyers are emailed to send proof of payment.
+  if (s === 'digital') {
+    return `
+    <div class="work-row status-digital" id="row-${w.id}">
+      <div class="work-row-header" onclick="toggleRow('${w.id}')">
+        <div>
+          <div class="work-row-artist">${esc(w.artist||'')}</div>
+          <div class="work-row-title">${esc(w.title||'Untitled')}</div>
+          <div class="work-row-meta">${[w.medium,w.dimensions].filter(Boolean).join(' · ')}</div>
+        </div>
+        <div class="work-row-price">${w.price?'$'+Number(w.price).toLocaleString():''}</div>
+        <div class="work-row-badges">
+          <span class="status-badge badge-digital">Digital</span>
+          <span class="chevron">▾</span>
         </div>
       </div>
-    </article>`).join('');
+      <div class="work-row-detail">
+        <div class="detail-inner">
+          <p style="font-size:12px;color:#444;line-height:1.7;margin:0">
+            Digital download. Sells to any number of buyers and needs no confirmation here.
+            Orders are logged in the <strong>DigitalOrders</strong> tab, and each buyer is emailed
+            to send proof of payment. Leave this one alone: marking it sold or available will stop it selling.
+          </p>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Status buttons — show only transitions that make sense for this role
+  const canMarkAvailable = s !== 'available';
+  const canMarkPending   = s !== 'pending';
+  const canMarkSold      = s !== 'sold';
+  const requiresAdmin    = s === 'sold'; // reversing sold → anything needs admin
+
+  const statusBtns = `
+    <button class="status-btn status-btn-available"
+      data-action="${requiresAdmin ? 'adminSetStatus' : 'setStatus'}"
+      data-work-id="${w.id}" data-new-status="available"
+      ${!canMarkAvailable ? 'disabled' : ''}>
+      Mark available
+    </button>
+    <button class="status-btn status-btn-pending"
+      data-action="setStatus" data-work-id="${w.id}" data-new-status="pending"
+      ${!canMarkPending ? 'disabled' : ''}>
+      Mark pending
+    </button>
+    <button class="status-btn status-btn-sold"
+      data-action="setStatus" data-work-id="${w.id}" data-new-status="sold"
+      ${!canMarkSold ? 'disabled' : ''}>
+      Mark sold
+    </button>`;
+
+  const queueItems = qLen === 0
+    ? '<p class="queue-empty">No commitments yet.</p>'
+    : w.queue.map((b,i) => `
+        <div class="queue-item">
+          <div class="queue-position ${i===0?'first':''}">${i+1}</div>
+          <div>
+            <div class="queue-buyer-name">${esc(b.name)}${i===0 && allTimers.find(t=>t.workId===w.id && !t.warningShown && !t.paused && t.minLeft <= 30 && t.minLeft > 0) ? `<span class="promoted-badge">Email sent · ${allTimers.find(t=>t.workId===w.id).minLeft}m left</span>` : ''}</div>
+            <div class="queue-buyer-contact">${esc(b.email)}<br>${esc(b.phone)}${b.timestamp?'<br>'+fmt(b.timestamp):''}${b.vipOptIn==='true'||b.vipOptIn===true?' · VIP ✓':''}</div>
+            ${i===0 ? `<div class="queue-actions">
+              <button class="action-btn action-btn-confirm" onclick="confirmAction('confirmSold','${w.id}','','Mark as sold to ${escA(b.name)}?','This marks the work as sold and clears the queue.')">✓ Confirm sold</button>
+              <button class="action-btn action-btn-expire" onclick="confirmAction('expireFirst','${w.id}','','Expire this commitment?','${escA(b.name)} did not complete payment. They will be removed and the next person promoted.')">Expire</button>
+              <button class="action-btn action-btn-withdraw" onclick="confirmAction('withdrawFirst','${w.id}','','Withdraw commitment for ${escA(b.name)}?','${escA(b.name)} has requested to withdraw. They will be removed and the next person promoted.')">Withdraw</button>
+            </div>` : ''}
+          </div>
+          <span class="queue-buyer-type">${b.paymentType==='transfer'?'Transfer':'At desk'}</span>
+        </div>`).join('');
+
+  return `
+    <div class="work-row status-${s}" id="row-${w.id}">
+      <div class="work-row-header" onclick="toggleRow('${w.id}')">
+        <div>
+          <div class="work-row-artist">${esc(w.artist||'')}</div>
+          <div class="work-row-title">${esc(w.title||'Untitled')}</div>
+          <div class="work-row-meta">${[w.medium,w.dimensions].filter(Boolean).join(' · ')}</div>
+        </div>
+        <div class="work-row-price">${w.price?'$'+Number(w.price).toLocaleString():''}</div>
+        <div class="work-row-badges">
+          <span class="status-badge badge-${s}">${statusLabel(s)}</span>
+          ${qLen>0?`<span class="queue-count">${qLen} in queue</span>`:''}
+          <span class="chevron">▾</span>
+        </div>
+      </div>
+      <div class="work-row-detail">
+        <div class="detail-inner">
+          <div class="status-controls">
+            <h4>Status</h4>
+            <div class="status-btn-row">${statusBtns}</div>
+            ${s==='sold' && !isAdmin ? '<p style="font-size:11px;color:var(--mid-gray);margin-top:4px">Reversing a sold status requires the admin password.</p>' : ''}
+          </div>
+          <div class="queue-section"><h4>Purchase queue</h4>${queueItems}</div>
+        </div>
+      </div>
+    </div>`;
 }
 
-function openWork(id) {
-  currentWork = allWorks.find(w => w.id === id);
-  if (!currentWork) return;
-  const img = document.getElementById('modal-img');
-  const ph = document.getElementById('modal-img-placeholder');
-  if (currentWork.imageUrl) { img.src = currentWork.imageUrl; img.alt = currentWork.title||''; img.style.display='block'; ph.style.display='none'; }
-  else { img.style.display='none'; ph.style.display='block'; }
-  document.getElementById('modal-artist').textContent = currentWork.artist||'Unknown artist';
-  const repEl = document.getElementById('modal-represented');
-  if (currentWork.representedBy) { repEl.textContent = 'Represented by ' + currentWork.representedBy; repEl.style.display='block'; } else { repEl.style.display='none'; }
-  document.getElementById('modal-title').textContent = currentWork.title||'Untitled';
-  document.getElementById('modal-meta').innerHTML = [currentWork.medium, currentWork.dimensions, currentWork.year].filter(Boolean).join('<br>');
-  const priceEl = document.getElementById('modal-price');
-  priceEl.textContent = showPrice(currentWork) && currentWork.price ? '$'+Number(currentWork.price).toLocaleString() : '';
-  document.getElementById('modal-status').innerHTML = `<span class="status-badge status-${currentWork.status||'available'}">${statusLabel(currentWork.status)}</span>`;
-  history.replaceState(null, '', '#' + currentWork.id);
-  showPurchaseOptions();
-  document.getElementById('modal-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
+function toggleRow(id) { document.getElementById('row-'+id)?.classList.toggle('expanded'); }
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = allWorks.length;
+  document.getElementById('stat-available').textContent = allWorks.filter(w=>w.status==='available').length;
+  document.getElementById('stat-pending').textContent = allWorks.filter(w=>w.status==='pending').length;
+  document.getElementById('stat-sold').textContent = allWorks.filter(w=>w.status==='sold').length;
+
 }
 
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
-  document.body.style.overflow = '';
-  history.replaceState(null, '', window.location.pathname);
-  currentWork = null;
+// ---- CONFIRM (standard) ----
+function confirmAction(action, workId, newStatus, title, body) {
+  pendingAction = {action, workId, newStatus, requiresAdmin: false};
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-body').textContent = body;
+  document.getElementById('confirm-input-wrap').style.display = 'none';
+  document.getElementById('admin-pwd-error').style.display = 'none';
+  document.getElementById('confirm-overlay').classList.add('open');
 }
 
-function showPurchaseOptions() {
-  document.getElementById('purchase-section').style.display = 'block';
-  document.getElementById('commit-form').classList.remove('open');
-  document.getElementById('success-state').classList.remove('open');
-  document.getElementById('sold-state').style.display = 'none';
-
-  const s = currentWork?.status || 'available';
-
-  // Digital works are unlimited and sell in every mode — always show the buttons.
-  if (s === 'digital') {
-    document.getElementById('btn-transfer').textContent = 'Buy by bank transfer';
-    document.getElementById('btn-desk').textContent = 'Buy at the desk';
+// ---- CONFIRM (admin required — sold → available) ----
+function confirmAdminAction(action, workId, newStatus, title, body) {
+  if (isAdmin) {
+    // Already logged in as admin — skip password prompt
+    pendingAction = {action, workId, newStatus, requiresAdmin: false};
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-body').textContent = body;
+    document.getElementById('confirm-input-wrap').style.display = 'none';
+    document.getElementById('confirm-overlay').classList.add('open');
     return;
   }
-
-  // Closed gallery
-  if (galleryMode === 'closed') {
-    document.getElementById('purchase-section').style.display = 'none';
-    document.getElementById('sold-state').style.display = 'block';
-    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Sales are now closed. Thank you!</p>';
-    return;
-  }
-
-  // Browse-only or VIP-window-for-public: no purchase section
-  if (galleryMode === 'browse_only' || (galleryMode === 'vip_window' && !tokenValid)) {
-    document.getElementById('purchase-section').style.display = 'none';
-    document.getElementById('sold-state').style.display = 'block';
-    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Purchases open at the event. See you there!</p>';
-    return;
-  }
-
-  // Live — standard flow
-  if (s === 'sold') {
-    document.getElementById('purchase-section').style.display = 'none';
-    document.getElementById('sold-state').style.display = 'block';
-    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">This work has been sold.</p>';
-    return;
-  }
-  const pend = s === 'pending';
-  document.getElementById('btn-transfer').textContent = pend ? 'Join waitlist — bank transfer' : 'Commit — bank transfer';
-  document.getElementById('btn-desk').textContent = pend ? 'Join waitlist — pay at desk' : 'Commit — pay at desk';
+  pendingAction = {action, workId, newStatus, requiresAdmin: true};
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-body').textContent = body;
+  document.getElementById('confirm-input-wrap').style.display = 'block';
+  document.getElementById('confirm-admin-pwd').value = '';
+  document.getElementById('admin-pwd-error').style.display = 'none';
+  document.getElementById('confirm-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('confirm-admin-pwd').focus(), 100);
 }
 
-function showForm(type) {
-  commitType = type;
-  document.getElementById('purchase-section').style.display = 'none';
-  document.getElementById('commit-form').classList.add('open');
-  const isDigital = currentWork?.status === 'digital';
-  const pend = currentWork?.status === 'pending';
-  document.getElementById('form-title').textContent = isDigital
-    ? (type==='transfer' ? 'Buy by bank transfer' : 'Buy at the desk')
-    : pend
-      ? (type==='transfer' ? 'Join waitlist — bank transfer' : 'Join waitlist — pay at desk')
-      : (type==='transfer' ? 'Commit — bank transfer' : 'Commit — pay at desk');
-  const cbg = document.getElementById('transfer-checkbox-group');
-  cbg.style.display = type==='transfer' ? 'flex' : 'none';
-  document.getElementById('f-commit-check').required = type==='transfer';
-  if (type==='transfer') {
-    document.getElementById('commit-label').textContent = isDigital
-      ? 'I will transfer payment within 48 hours and send proof of payment so my download can be sent.'
-      : 'I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.';
+function confirmCloseAll() {
+  const title = 'Close all sales?';
+  const body = 'This will mark ALL remaining works as sold and clear all queues. This cannot be undone.';
+  if (isAdmin) {
+    pendingAction = {action:'closeAll', requiresAdmin: false};
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-body').textContent = body;
+    document.getElementById('confirm-input-wrap').style.display = 'none';
+    document.getElementById('admin-pwd-error').style.display = 'none';
+    document.getElementById('confirm-overlay').classList.add('open');
+    return;
   }
-  document.getElementById('submit-btn').textContent = isDigital ? 'Submit order' : 'Submit commitment';
+  pendingAction = {action:'closeAll', requiresAdmin: true};
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-body').textContent = body + ' Requires the admin password.';
+  document.getElementById('confirm-input-wrap').style.display = 'block';
+  document.getElementById('confirm-admin-pwd').value = '';
+  document.getElementById('admin-pwd-error').style.display = 'none';
+  document.getElementById('confirm-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('confirm-admin-pwd').focus(), 100);
 }
 
-async function submitCommit(e) {
-  e.preventDefault();
-  const btn = document.getElementById('submit-btn');
-  btn.textContent = 'Submitting…'; btn.disabled = true;
-  const payload = {
-    action: 'commitPurchase',
-    workId: currentWork.id, workTitle: currentWork.title, artist: currentWork.artist, price: currentWork.price,
-    name: document.getElementById('f-name').value.trim(),
-    email: document.getElementById('f-email').value.trim(),
-    phone: document.getElementById('f-phone').value.trim(),
-    paymentType: commitType,
-    vipToken: vipToken, // step 6: pass token for attribution
-    timestamp: new Date().toISOString(),
+async function executePending() {
+  if (!pendingAction) return;
+
+  if (pendingAction.requiresAdmin) {
+    const pwd = document.getElementById('confirm-admin-pwd').value;
+    if (pwd !== ADMIN_PASSWORD) {
+      document.getElementById('admin-pwd-error').style.display = 'block';
+      return;
+    }
+  }
+
+  const adminOverride = pendingAction.requiresAdmin ? ADMIN_PASSWORD : null;
+  closeConfirm();
+  await sendAction(pendingAction, adminOverride);
+  pendingAction = null;
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  document.getElementById('confirm-admin-pwd').value = '';
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeConfirm(); closeQRPanel(); } });
+document.getElementById('confirm-yes-btn').addEventListener('click', executePending);
+document.getElementById('confirm-no-btn').addEventListener('click', closeConfirm);
+
+// Delegated handler for status buttons (avoids inline onclick quote issues)
+document.getElementById('work-list') && document.addEventListener('click', e => {
+  const btn = e.target.closest('.status-btn[data-action]');
+  if (!btn || btn.disabled) return;
+  const action    = btn.dataset.action;
+  const workId    = btn.dataset.workId;
+  const newStatus = btn.dataset.newStatus;
+  if (action === 'setStatus') {
+    const titles = { available: 'Mark as available?', pending: 'Mark as pending?', sold: 'Mark as sold?' };
+    const bodies = { available: 'Work will be listed as available.', pending: 'Work will show as pending purchase.', sold: 'Use this for Square terminal payments on the night.' };
+    confirmAction('setStatus', workId, newStatus, titles[newStatus], bodies[newStatus]);
+  } else if (action === 'adminSetStatus') {
+    confirmAdminAction('setStatus', workId, newStatus, 'Mark as available?', 'This will reverse a sold status and requires the admin password.');
+  }
+});
+
+// ---- QR CODES ----
+function openQRPanel() {
+  const grid = document.getElementById('qr-grid');
+  grid.innerHTML = '';
+
+  // Index QR first
+  const indexItem = document.createElement('div');
+  indexItem.className = 'qr-item qr-index-item';
+  indexItem.innerHTML = `
+    <div class="qr-item-artist">Event brochure</div>
+    <div class="qr-item-title">Conners Conners Fundraiser 2026</div>
+    <div id="qr-index-canvas"></div>
+    <div class="qr-item-price">Main gallery</div>`;
+  grid.appendChild(indexItem);
+  new QRCode(document.getElementById('qr-index-canvas'), {
+    text: GALLERY_URL, width: 160, height: 160, colorDark: '#0a0a0a', colorLight: '#ffffff',
+  });
+
+  // Per-work QR codes
+  allWorks.forEach(w => {
+    const item = document.createElement('div');
+    item.className = 'qr-item';
+    const canvasId = 'qr-' + w.id;
+    item.innerHTML = `
+      <div class="qr-item-artist">${esc(w.artist||'')}</div>
+      <div id="${canvasId}"></div>
+      <div class="qr-item-title">${esc(w.title||'Untitled')}</div>
+      <div class="qr-item-price">${w.price?'$'+Number(w.price).toLocaleString():''}</div>
+      <div class="qr-item-id">${w.id}</div>`;
+    grid.appendChild(item);
+    new QRCode(document.getElementById(canvasId), {
+      text: GALLERY_URL + '#' + w.id,
+      width: 160, height: 160,
+      colorDark: '#0a0a0a', colorLight: '#ffffff',
+    });
+  });
+
+  document.getElementById('qr-overlay').classList.add('open');
+}
+
+function closeQRPanel() { document.getElementById('qr-overlay').classList.remove('open'); }
+
+// ---- TIMER WARNINGS ----
+function renderTimerWarnings() {
+  const container = document.getElementById('timer-warnings');
+  if (!allTimers.length) { container.innerHTML = ''; return; }
+
+  const warnings = allTimers.filter(t => t.warningShown || t.paused);
+  if (!warnings.length) { container.innerHTML = ''; return; }
+
+  container.innerHTML = warnings.map(t => {
+    const isPaused = t.paused;
+    const canExtend = !t.extended && !isPaused;
+    const timeText = isPaused ? 'Timer paused' : `${t.minLeft} min remaining`;
+
+    return `<div class="timer-warning-banner ${isPaused ? 'paused' : ''}">
+      <div class="timer-warning-text">
+        ${isPaused ? '⏸ Paused:' : '⚠ Expiring soon:'} ${esc(t.buyerName)} — ${esc(t.workTitle)}
+      </div>
+      <span class="timer-countdown">${timeText}</span>
+      ${canExtend ? `<button class="timer-btn timer-btn-extend" onclick="timerExtend('${t.workId}','${t.queueTimestamp}')">+5 min</button>` : ''}
+      ${!isPaused ? `<button class="timer-btn timer-btn-pause" onclick="timerPause('${t.workId}','${t.queueTimestamp}')">Pause</button>` : ''}
+      ${isPaused ? `<button class="timer-btn timer-btn-unpause" onclick="timerUnpause('${t.workId}','${t.queueTimestamp}')">Resume</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function timerExtend(workId, queueTimestamp) {
+  await sendAction({ action: 'extendTimer', workId, queueTimestamp });
+}
+
+async function timerPause(workId, queueTimestamp) {
+  await sendAction({ action: 'pauseTimer', workId, queueTimestamp });
+}
+
+async function timerUnpause(workId, queueTimestamp) {
+  await sendAction({ action: 'unpauseTimer', workId, queueTimestamp });
+}
+
+// ---- GALLERY MODE ----
+const MODE_LABELS = {
+  browse_only: 'Browse only',
+  vip_window:  'VIP window',
+  live:        'Live',
+  closed:      'Closed',
+};
+
+function updateModeDisplay() {
+  const el = document.getElementById('mode-badge-header');
+  if (el) {
+    el.textContent = MODE_LABELS[galleryMode] || galleryMode;
+    el.className = 'mode-badge mode-badge-' + galleryMode;
+  }
+  updatePhaseBanner();
+}
+
+// Step 8: phase indicator banner, shown for all non-live phases to both
+// volunteers and admin so they understand what state the gallery is in.
+function updatePhaseBanner() {
+  const banner = document.getElementById('phase-banner');
+  if (!banner) return;
+
+  const messages = {
+    browse_only: { title: 'Browse only', body: 'Gallery in browse-only mode. No commits possible. Sales open shortly.' },
+    vip_window:  { title: 'VIP early access', body: 'Only VIPs with personal token links can commit. Public visitors can browse but not buy.' },
+    closed:      { title: 'Gallery closed', body: 'Sales are closed. No commits possible.' },
   };
-  let success = false;
-  try {
-    const res = await fetch(SHEET_API_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
-    const data = await res.json();
-    success = data.success;
-    if (data.works) { allWorks = data.works.filter(w => w.id && (w.artist||w.title)); renderGrid(); }
-  } catch(err) { console.error(err); }
-  document.getElementById('commit-form').classList.remove('open');
-  document.getElementById('success-state').classList.add('open');
-  const isDigital = currentWork?.status === 'digital';
-  document.getElementById('success-title').textContent = !success ? 'Something went wrong' : (isDigital ? 'Order received.' : "You're in the queue.");
-  document.getElementById('success-body').innerHTML = !success
-    ? 'There was an issue submitting. Please speak to a volunteer.'
-    : isDigital
-      ? (commitType==='transfer'
-          ? `Your order for <strong>${esc(currentWork.title||'this download')}</strong> has been received, and a confirmation has been sent to your email. Please transfer payment within 48 hours and send proof of payment to the address in your confirmation email. Once it's confirmed, ${esc(currentWork.artist||'the artist')} will email your download.`
-          : `Your order for <strong>${esc(currentWork.title||'this download')}</strong> has been received, and a confirmation has been sent to your email. Pay at the sales desk, and once your payment is received, ${esc(currentWork.artist||'the artist')} will email your download.`)
-      : (commitType==='transfer'
-          ? `Your commitment for <strong>${esc(currentWork.title||'this work')}</strong> has been received. A confirmation has been sent to your email. Conners Conners will be in touch with bank details.`
-          : `Your commitment to pay at the desk for <strong>${esc(currentWork.title||'this work')}</strong> has been received. A confirmation has been sent to your email.`);
-  e.target.reset();
-  btn.disabled=false; btn.textContent = isDigital ? 'Submit order' : 'Submit commitment';
+
+  const msg = messages[galleryMode];
+  if (!msg) { banner.style.display = 'none'; return; }
+
+  banner.className = 'phase-banner phase-banner-' + galleryMode;
+  banner.innerHTML = '<div class="phase-banner-title">' + esc(msg.title) + '</div>' + esc(msg.body);
+  banner.style.display = 'block';
 }
 
+async function setMode(mode) {
+  const label = (MODE_LABELS[mode] || mode).toLowerCase();
+  if (!confirm('Set gallery to ' + label + '?')) return;
+  const res = await fetch(SHEET_API_URL, {
+    method: 'POST', headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify({ action: 'setGalleryMode', mode, pwd: ADMIN_PASSWORD }),
+  });
+  const data = await res.json();
+  if (data.success) {
+    galleryMode = mode;
+    updateModeDisplay();
+    // Manual mode change cancels both scheduled transitions backend-side; clear UI too
+    const vw = document.getElementById('schedule-vip-window-status');
+    const lv = document.getElementById('schedule-live-status');
+    if (vw) vw.textContent = '';
+    if (lv) lv.textContent = '';
+  }
+}
+
+// Schedule a transition. target is 'vip_window' or 'live'.
+async function scheduleTransition(target) {
+  const inputId  = target === 'vip_window' ? 'schedule-vip-window-input'  : 'schedule-live-input';
+  const statusId = target === 'vip_window' ? 'schedule-vip-window-status' : 'schedule-live-status';
+  const val = document.getElementById(inputId).value;
+  if (!val) { alert('Please select a date and time.'); return; }
+  const iso = new Date(val).toISOString();
+  const res = await fetch(SHEET_API_URL, {
+    method: 'POST', headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify({ action: 'scheduleGalleryMode', target, scheduledTime: iso, pwd: ADMIN_PASSWORD }),
+  });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById(statusId).textContent =
+      'Scheduled: switch to ' + (MODE_LABELS[target]||target) + ' at ' + new Date(val).toLocaleString('en-AU');
+  }
+}
+
+async function cancelTransition(target) {
+  const inputId  = target === 'vip_window' ? 'schedule-vip-window-input'  : 'schedule-live-input';
+  const statusId = target === 'vip_window' ? 'schedule-vip-window-status' : 'schedule-live-status';
+  await fetch(SHEET_API_URL, {
+    method: 'POST', headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify({ action: 'scheduleGalleryMode', target, scheduledTime: '', pwd: ADMIN_PASSWORD }),
+  });
+  document.getElementById(inputId).value = '';
+  document.getElementById(statusId).textContent = 'Schedule cancelled.';
+}
+
+function toggleAdminPanel(id) {
+  document.getElementById(id)?.classList.toggle('open');
+}
+
+// ---- VIP LIST (step 7) ----
+let allVips = [];
+
+async function loadVipList() {
+  try {
+    const res = await fetch(SHEET_API_URL + '?action=adminGetVipList&pwd=' + encodeURIComponent(ADMIN_PASSWORD));
+    const data = await res.json();
+    if (data.vips) { allVips = data.vips; renderVipList(); }
+  } catch(e) { console.error('VIP list load failed', e); }
+}
+
+function renderVipList() {
+  const active = allVips.filter(v => v.active).length;
+  const total = allVips.length;
+  const countEl = document.getElementById('vip-list-count');
+  if (countEl) countEl.textContent = total === 0 ? 'No VIPs yet' : active + ' active / ' + total + ' total';
+
+  const body = document.getElementById('vip-list-rows');
+  if (!body) return;
+
+  if (!allVips.length) {
+    body.innerHTML = '<p style="font-size:12px;color:var(--mid-gray)">No VIPs yet. Import a CSV to add some.</p>';
+    return;
+  }
+
+  body.innerHTML = allVips.map(v => `
+    <div class="vip-row ${v.active ? '' : 'inactive'}">
+      <div>
+        <div class="vip-row-name">${esc(v.name)}</div>
+        <div class="vip-row-contact">${esc(v.email)}${v.phone ? ' · ' + esc(v.phone) : ''}</div>
+        ${v.attribution ? `<div class="vip-row-attribution">With thanks to ${esc(v.attribution)}</div>` : ''}
+      </div>
+      <label class="vip-toggle">
+        <input type="checkbox" ${v.active ? 'checked' : ''} onchange="toggleVipActive('${escA(v.token)}', this.checked)">
+        Active
+      </label>
+      <div class="vip-row-actions">
+        <button class="vip-btn vip-btn-accept" onclick="copyVipUrl('${escA(v.token)}')">Copy URL</button>
+        <button class="vip-btn vip-btn-decline" onclick="resendVipEmail('${escA(v.token)}','${escA(v.name)}')">Resend email</button>
+        <span class="vip-action-feedback" id="vip-feedback-${esc(v.token)}"></span>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function importVipCsv() {
+  const fileInput = document.getElementById('vip-csv-input');
+  const batchInput = document.getElementById('vip-batch-input');
+  const file = fileInput.files[0];
+  if (!file) { setVipStatus('Choose a CSV file first.', 'error'); return; }
+
+  setVipStatus('Reading file…', '');
+  try {
+    const text = await file.text();
+    const res = await fetch(SHEET_API_URL, {
+      method: 'POST', headers: {'Content-Type':'text/plain'},
+      body: JSON.stringify({ action: 'adminImportVipList', csv: text, batch: batchInput.value.trim(), pwd: ADMIN_PASSWORD }),
+    });
+    const data = await res.json();
+    if (data.success) {
+      const reasons = (data.skipReasons && data.skipReasons.length) ? ' Reasons: ' + data.skipReasons.join('; ') : '';
+      setVipStatus('Added ' + data.added + ', skipped ' + data.skipped + '.' + reasons, 'success');
+      fileInput.value = '';
+      batchInput.value = '';
+      loadVipList();
+    } else {
+      setVipStatus(data.error || 'Import failed.', 'error');
+    }
+  } catch(e) {
+    console.error('CSV import failed', e);
+    setVipStatus('Import failed: ' + e.message, 'error');
+  }
+}
+
+function exportVipCsv() {
+  if (!allVips.length) { setVipStatus('No VIPs to export.', 'error'); return; }
+  const baseUrl = GALLERY_URL.replace(/\/index\.html$/, '/');
+  const headers = ['name','email','phone','attribution','token','url','active','firstSeen','batch'];
+  const rows = allVips.map(v => [
+    v.name, v.email, v.phone, v.attribution, v.token,
+    baseUrl + '?token=' + encodeURIComponent(v.token),
+    v.active ? 'true' : 'false', v.firstSeen || '', v.batch || '',
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().slice(0,10);
+  a.href = url; a.download = 'cc-vips-' + ts + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  setVipStatus('Exported ' + allVips.length + ' VIPs.', 'success');
+}
+
+function csvCell(value) {
+  const s = String(value == null ? '' : value);
+  if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+
+async function copyVipUrl(token) {
+  const baseUrl = GALLERY_URL.replace(/\/index\.html$/, '/');
+  const url = baseUrl + '?token=' + encodeURIComponent(token);
+  try {
+    await navigator.clipboard.writeText(url);
+    showVipFeedback(token, 'Copied', false);
+  } catch(e) {
+    const ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); showVipFeedback(token, 'Copied', false); }
+    catch(e2) { showVipFeedback(token, 'Copy failed', true); }
+    document.body.removeChild(ta);
+  }
+}
+
+async function resendVipEmail(token, name) {
+  if (!confirm('Resend VIP token email to ' + name + '?')) return;
+  const res = await fetch(SHEET_API_URL, {
+    method: 'POST', headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify({ action: 'adminResendToken', token, pwd: ADMIN_PASSWORD }),
+  });
+  const data = await res.json();
+  if (data.success) {
+    showVipFeedback(token, 'Sent', false);
+  } else {
+    showVipFeedback(token, data.error || 'Failed', true);
+  }
+}
+
+async function toggleVipActive(token, active) {
+  const res = await fetch(SHEET_API_URL, {
+    method: 'POST', headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify({ action: 'adminToggleTokenActive', token, active, pwd: ADMIN_PASSWORD }),
+  });
+  const data = await res.json();
+  if (data.success) {
+    const vip = allVips.find(v => v.token === token);
+    if (vip) vip.active = active;
+    renderVipList();
+  } else {
+    loadVipList();
+  }
+}
+
+function showVipFeedback(token, msg, isError) {
+  const el = document.getElementById('vip-feedback-' + token);
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  el.classList.toggle('error', !!isError);
+  setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function setVipStatus(msg, type) {
+  const el = document.getElementById('vip-list-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'vip-list-status' + (type ? ' ' + type : '');
+}
+
+// ---- HELPERS ----
 function statusLabel(s) { return s==='sold'?'Sold':s==='pending'?'Pending':'Available'; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escA(s) { return String(s||'').replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+function fmt(ts) { try { return new Date(ts).toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'}); } catch{return '';} }
 </script>
 </body>
 </html>
