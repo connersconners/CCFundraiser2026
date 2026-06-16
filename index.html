@@ -260,10 +260,12 @@ let schedVipWindow = '', schedLive = '';
 let vipToken = '';
 let tokenValid = false;
 let vipInfo = null;
+let previewMode = false;
 
 // Detect VIP token from URL (step 3)
 const urlParams = new URLSearchParams(window.location.search);
 vipToken = urlParams.get('token') || '';
+const previewKey = urlParams.get('preview') || '';
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('footer-year').textContent = new Date().getFullYear();
@@ -289,13 +291,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadWorks() {
   try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '');
+    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
     const res = await fetch(url);
     const data = await res.json();
     if (data.works && data.works.length > 0) {
       allWorks = data.works.filter(w => w.id && (w.artist || w.title));
       tokenValid = data.tokenValid === true;
       vipInfo = data.vipInfo || null;
+      previewMode = data.preview === true;
       schedVipWindow = data.scheduledVipWindow || '';
       schedLive = data.scheduledLive || '';
       if (data.mode) { galleryMode = data.mode; applyGalleryMode(); }
@@ -423,6 +426,7 @@ function startCountdown() {
 
 // Price visibility — hidden in browse_only, hidden in vip_window for public (no token)
 function showPrice(work) {
+  if (previewMode) return true;
   if (galleryMode === 'browse_only') return false;
   if (galleryMode === 'vip_window' && !tokenValid) return false;
   return true;
@@ -436,13 +440,14 @@ function handleHashLink() {
 
 async function pollStatus() {
   try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '');
+    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
     const res = await fetch(url);
     const data = await res.json();
     if (!data.works) return;
     // Re-validate token on every poll (curator may have revoked mid-session)
     tokenValid = data.tokenValid === true;
     vipInfo = data.vipInfo || null;
+    previewMode = data.preview === true;
     schedVipWindow = data.scheduledVipWindow || '';
     schedLive = data.scheduledLive || '';
     if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderGrid(); }
