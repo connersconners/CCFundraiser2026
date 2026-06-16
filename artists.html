@@ -497,9 +497,11 @@ function showForm(type) {
       : 'I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.';
   }
   document.getElementById('submit-btn').textContent = isDigital ? 'Submit order' : 'Submit commitment';
-  // VIP autofill: fill any empty contact field from the token's details.
+  // VIP autofill: populate contact fields from the token, authoritatively, so it
+  // overrides any browser-autofilled guess. Empty token fields are left as-is for
+  // manual entry (phone is still required).
   if (vipInfo) {
-    const fill = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
+    const fill = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
     fill('f-name', vipInfo.name);
     fill('f-email', vipInfo.email);
     fill('f-phone', vipInfo.phone);
