@@ -252,6 +252,7 @@ let tokenValid = false;
 let vipInfo = null;
 const urlParams = new URLSearchParams(window.location.search);
 vipToken = urlParams.get('token') || '';
+const previewKey = urlParams.get('preview') || '';
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('footer-year').textContent = new Date().getFullYear();
@@ -298,7 +299,7 @@ function dismissVip() {
 
 async function loadWorks() {
   try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '');
+    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
     const res = await fetch(url);
     const data = await res.json();
     if (data.works && data.works.length > 0) {
@@ -378,7 +379,7 @@ function applyGalleryMode() {
 // Live polling — same logic as index.html
 async function pollStatus() {
   try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '');
+    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
     const res = await fetch(url);
     const data = await res.json();
     if (!data.works) return;
