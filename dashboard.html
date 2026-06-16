@@ -77,6 +77,7 @@
   .badge-available { color: var(--black); }
   .badge-pending { color: var(--pending); }
   .badge-sold { color: var(--sold); }
+  .badge-digital { color: var(--black); }
   .queue-count { font-size: 10px; background: var(--pending-bg); color: var(--pending); border: 1px solid var(--pending); padding: 2px 7px; white-space: nowrap; }
   .chevron { font-size: 11px; color: var(--mid-gray); transition: transform 0.2s; }
   .work-row.expanded .chevron { transform: rotate(180deg); }
@@ -493,7 +494,7 @@ function renderList() {
     return mf && ms;
   });
   works.sort((a,b) => {
-    const o = {pending:0, available:1, sold:2};
+    const o = {pending:0, available:1, sold:2, digital:3};
     if (o[a.status] !== o[b.status]) return o[a.status] - o[b.status];
     return (b.queue?.length||0) - (a.queue?.length||0);
   });
@@ -505,6 +506,36 @@ function renderList() {
 function buildRow(w) {
   const qLen = w.queue?.length || 0;
   const s = w.status || 'available';
+
+  // Digital works are unlimited and need no confirmation here. Render a flat row
+  // with no status buttons and no queue, so volunteers can't accidentally mark it
+  // sold (which would stop it selling). Buyers are emailed to send proof of payment.
+  if (s === 'digital') {
+    return `
+    <div class="work-row status-digital" id="row-${w.id}">
+      <div class="work-row-header" onclick="toggleRow('${w.id}')">
+        <div>
+          <div class="work-row-artist">${esc(w.artist||'')}</div>
+          <div class="work-row-title">${esc(w.title||'Untitled')}</div>
+          <div class="work-row-meta">${[w.medium,w.dimensions].filter(Boolean).join(' · ')}</div>
+        </div>
+        <div class="work-row-price">${w.price?'$'+Number(w.price).toLocaleString():''}</div>
+        <div class="work-row-badges">
+          <span class="status-badge badge-digital">Digital</span>
+          <span class="chevron">▾</span>
+        </div>
+      </div>
+      <div class="work-row-detail">
+        <div class="detail-inner">
+          <p style="font-size:12px;color:#444;line-height:1.7;margin:0">
+            Digital download. Sells to any number of buyers and needs no confirmation here.
+            Orders are logged in the <strong>DigitalOrders</strong> tab, and each buyer is emailed
+            to send proof of payment. Leave this one alone: marking it sold or available will stop it selling.
+          </p>
+        </div>
+      </div>
+    </div>`;
+  }
 
   // Status buttons — show only transitions that make sense for this role
   const canMarkAvailable = s !== 'available';
