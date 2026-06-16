@@ -1,513 +1,1176 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Artists — Conners Conners Fundraiser 2026</title>
-<style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --black: #0a0a0a;
-    --white: #ffffff;
-    --off-white: #f8f8f8;
-    --light-gray: #eeeeee;
-    --mid-gray: #999999;
-    --border: #e0e0e0;
-    --pending: #b07d3a;
-    --sold: #999999;
-    --font: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+// =====================================================================
+// CONNERS CONNERS FUNDRAISER — Google Apps Script Backend
+// =====================================================================
+// HOW TO UPDATE:
+// 1. Replace ALL code with this file in the Apps Script editor
+//    (🥜 FUNDRAISER: Backend project)
+// 2. Save (Cmd+S)
+// 3. Deploy > Manage deployments > edit active deployment > New version > Deploy
+//
+// TRIGGERS REQUIRED (set up once — clock icon in left sidebar):
+// 1. checkExpiryTimers     — Time-driven, Every 5 minutes
+// 2. checkGalleryMode      — Time-driven, Every 1 minute
+// 3. checkPostEventFollowUp — Time-driven, Every hour
+//
+// STEP 2 ADDITIONS (VIP rebuild):
+// - generateSelfExtendToken (renamed from generateToken, decision 1)
+// - generateVipToken (new VIP token generator, decision 1)
+// - validateToken (new, called inline from getWorks per decision 4)
+// - Admin endpoints: adminGetVipList, adminCopyToken, adminResendToken,
+//   adminToggleTokenActive, adminImportVipList (decision 10)
+// - Default mode value renamed 'soft_launch' to 'browse_only' (decision 7)
+//
+// STEP 5 ADDITIONS (phase logic):
+// - getPublicWorks now phase-aware: takes tokenValid param, strips prices and
+//   forces statuses to 'available' for public callers during browse_only and
+//   vip_window. VIPs with valid tokens see full payload during vip_window.
+// - New scheduled-transition system replaces scheduledLaunch/scheduledMode:
+//     Config 'scheduledVipWindow' = ISO datetime for browse_only -> vip_window
+//     Config 'scheduledLive'      = ISO datetime for vip_window -> live
+// - checkGalleryMode time-driven trigger handles both transitions
+// - Old scheduledLaunch/scheduledMode Config keys are no longer read or written;
+//   they can be safely deleted from the Config tab during step 5 deploy
+//
+// STEP 6 ADDITIONS (attribution on commit + backend phase gate):
+// - handleCommit now rejects commits in browse_only and closed modes
+// - handleCommit in vip_window mode requires a valid vipToken in payload
+// - Optional payload.vipToken validated and written to Queue column 9 for
+//   per-VIP attribution (empty string if absent or invalid)
+// - Queue tab needs header 'vipToken' in cell I1 (manual one-off sheet edit)
+//
+// STEP 9 STRIPS (deprecated VIP offer flow removed):
+// - VIP_CODE constant removed
+// - All VipOffer functions removed: getVipOffers, handleVipOffer,
+//   handleAcceptVipOffer, handleDeclineVipOffer, handleDeclineAllVipOffers,
+//   getOrCreateVipOffersSheet
+// - VIP offer email senders removed: sendVipOfferConfirmationEmail,
+//   sendVipOfferAcceptedEmail, sendVipOfferDeclinedEmail
+// - verifyVipCode endpoint removed
+// - hasVipOffer flag removed from getPublicWorks
+// - payload.vipOptIn handling removed from handleCommit (writes empty
+//   placeholder to Queue col 8 to preserve col 9 = vipToken positioning,
+//   no VIP signup sheet append)
+// - vipOptIn read removed from queue mapping
+// - Optional sheet cleanup after deploy: delete VipOffers tab, delete legacy
+//   VIP signup tab (both have no incoming writes)
+//
+// COUNTDOWN ADDITION:
+// - getWorks now returns scheduledVipWindow and scheduledLive so the frontend
+//   header countdown can show time-to-VIP-window / time-to-go-live
+//
+// PREVIEW ADDITION:
+// - PREVIEW_KEY constant + ?preview= param on getWorks. A valid preview key
+//   makes getPublicWorks return real prices and statuses regardless of mode
+//   (admin price-preview link). View-only: commits still follow gallery mode.
+//
+// EVENT HOURS (24hr Melbourne time):
+const EVENT_START_HOUR = 0; // [PLACEHOLDER] e.g. 18 = 6:00pm
+const EVENT_END_HOUR   = 24; // [PLACEHOLDER] e.g. 22 = 10:00pm
+const EVENT_TIMEZONE   = 'Australia/Melbourne';
+
+// TIMER SETTINGS:
+const COMMIT_WINDOW_MINUTES  = 30;
+const WARNING_BEFORE_MINUTES = 10; // Must stay >= 10 — trigger runs every 5 min,
+                                    // so 10 min window guarantees at least one warning SMS fires
+const SELF_EXTEND_MINUTES    = 10;
+
+// SHEET + AUTH:
+const SHEET_ID           = '1L9xouhDbLzzg3-GHnFY65x3ORI02siWQcbnhLDAL3Gw';
+const VOLUNTEER_PASSWORD = 'PORTICO2019';
+const ADMIN_PASSWORD     = 'CABOOSE2026';
+const PREVIEW_KEY        = 'PREVIEW2026'; // admin price-preview link key, change to whatever you like
+
+// EMAIL + SMS:
+const SENDER_NAME    = 'Conners Conners';
+const SENDER_EMAIL   = 'connersconnersgallery@gmail.com';
+const REPLY_TO       = 'hello@conners.com.au';
+const GALLERY_EMAIL  = 'hello@conners.com.au';
+const PAYID          = '37128241411';
+const PAYID_TYPE     = 'ABN';
+const BANK_NAME      = 'Westpac';
+const PAYMENT_WINDOW = 48;
+const DIGITAL_PROOF_EMAIL = '[PROOF-OF-PAYMENT EMAIL PLACEHOLDER]'; // where digital buyers send proof of transfer
+
+// PUBLIC GALLERY URL (used for VIP token URLs):
+const GALLERY_URL    = 'https://connersconners.github.io/CCFundraiser2026/';
+
+// =====================================================================
+// GET
+// =====================================================================
+function doGet(e) {
+  const action = e.parameter.action;
+  const pwd    = e.parameter.pwd;
+
+  if (action === 'getWorks') {
+    const token = e.parameter.token || '';
+    const preview = e.parameter.preview || '';
+    let tokenValid = false;
+    let vipInfo = null;
+    if (token) {
+      const v = validateToken(token);
+      tokenValid = v.valid;
+      vipInfo = v.vip;
+    }
+    const isPreview = preview !== '' && preview === PREVIEW_KEY;
+    const works = getPublicWorks(tokenValid, isPreview);
+    const cfg = getConfig();
+    return jsonResponse({
+      works,
+      mode: getGalleryMode(),
+      tokenValid,
+      vipInfo,
+      preview: isPreview,
+      scheduledVipWindow: cfg.scheduledVipWindow || '',
+      scheduledLive: cfg.scheduledLive || ''
+    });
   }
-  html { scroll-behavior: smooth; }
-  body { font-family: var(--font); background: var(--white); color: var(--black); min-height: 100vh; font-size: 14px; }
-
-  /* HEADER */
-  header { padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 48px; position: sticky; top: 0; background: var(--white); z-index: 100; border-bottom: 1px solid var(--border); }
-  .logo { font-size: 14px; font-weight: 700; color: var(--black); text-decoration: none; }
-  nav { display: flex; gap: 0; }
-  nav a { font-size: 13px; color: var(--mid-gray); text-decoration: none; padding: 0 14px; height: 48px; display: flex; align-items: center; border-left: 1px solid var(--border); transition: color 0.1s; }
-  nav a:hover { color: var(--black); }
-  nav a.active { color: var(--black); font-weight: 700; }
-
-  /* INTRO */
-  .intro { padding: 40px 24px 28px; border-bottom: 1px solid var(--border); }
-  .intro-eyebrow { font-size: 12px; color: var(--mid-gray); margin-bottom: 8px; }
-  .intro-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-  .intro h1 { font-size: 22px; font-weight: 700; margin-bottom: 0; line-height: 1.2; }
-
-  /* SORT CONTROL */
-  .sort-control { display: flex; align-items: center; gap: 8px; }
-  .sort-label { font-size: 11px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
-  .sort-seg { display: inline-flex; border: 1px solid var(--border); }
-  .sort-seg button { font-family: var(--font); font-size: 12px; padding: 6px 12px; background: transparent; border: none; cursor: pointer; color: var(--mid-gray); transition: all 0.1s; }
-  .sort-seg button + button { border-left: 1px solid var(--border); }
-  .sort-seg button:hover { color: var(--black); }
-  .sort-seg button.active { background: var(--black); color: var(--white); font-weight: 700; }
-
-  /* WORKS GRID (tile per work) */
-  .works-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-    gap: 16px;
-    padding: 24px;
+  if (action === 'getWorksAdmin') {
+    if (pwd !== VOLUNTEER_PASSWORD && pwd !== ADMIN_PASSWORD) return jsonResponse({ error: 'Unauthorised' });
+    return jsonResponse({ works: getAdminWorks(), timers: getTimerState(), mode: getGalleryMode(), config: getConfig() });
   }
-  .work-tile {
-    background: var(--white);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: border-color 0.1s;
+  if (action === 'validateToken') {
+    return jsonResponse(validateToken(e.parameter.token || ''));
   }
-  .work-tile:hover { border-color: var(--black); }
-
-  .work-image-wrap { width: 100%; aspect-ratio: 1/1; position: relative; overflow: hidden; background: var(--light-gray); display: flex; align-items: center; justify-content: center; }
-  .work-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .work-image-placeholder { font-size: 11px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
-
-  .work-num { position: absolute; top: 8px; left: 8px; z-index: 2; font-size: 11px; font-weight: 700; background: rgba(10,10,10,0.6); color: #fff; padding: 2px 7px; letter-spacing: 0.02em; }
-  .work-artist-overlay { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; background: rgba(10,10,10,0.62); color: #fff; font-weight: 700; font-size: 15px; line-height: 1.2; padding: 9px 11px; }
-
-  .work-info { padding: 9px 11px 11px; }
-  .work-title { font-size: 12px; color: #444; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .work-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .work-price { font-size: 12px; font-weight: 700; }
-
-  .status-badge { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; transition: color 0.3s; white-space: nowrap; }
-  .status-available { color: var(--black); }
-  .status-pending { color: var(--pending); }
-  .status-sold { color: var(--sold); }
-
-  @keyframes statusFlash { 0%{opacity:0.2} 50%{opacity:1} 100%{opacity:1} }
-  .status-changed { animation: statusFlash 0.6s ease-out; }
-
-  /* MODAL */
-  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
-  .modal-overlay.open { display: flex; }
-
-  /* VIP welcome overlay */
-  .vip-overlay { display: none; position: fixed; inset: 0; background: var(--white); z-index: 300; align-items: center; justify-content: center; padding: 32px 24px; cursor: pointer; opacity: 0; transition: opacity 0.4s ease; }
-  .vip-overlay.open { display: flex; opacity: 1; }
-  .vip-inner { text-align: center; max-width: 440px; width: 100%; }
-  .vip-eyebrow { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 10px; }
-  .vip-welcome { font-size: 26px; font-weight: 700; line-height: 1.2; color: var(--black); margin-bottom: 28px; }
-  .vip-image { margin-bottom: 18px; }
-  .vip-image img { max-width: 100%; max-height: 46vh; object-fit: contain; display: block; margin: 0 auto; }
-  .vip-artist { font-size: 14px; font-weight: 700; color: var(--black); margin-bottom: 2px; }
-  .vip-title { font-size: 13px; color: #444; margin-bottom: 28px; }
-  .vip-tap { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid-gray); }
-  .modal { background: var(--white); max-width: 820px; width: 100%; max-height: 92vh; overflow-y: auto; display: grid; grid-template-columns: 1.1fr 1fr; position: relative; }
-  @media (max-width: 600px) { .modal { grid-template-columns: 1fr; } nav a { padding: 0 10px; font-size: 12px; } }
-  .modal-image-panel { background: var(--light-gray); display: flex; align-items: center; justify-content: center; min-height: 320px; }
-  .modal-image-panel img { width: 100%; height: 100%; object-fit: contain; max-height: 480px; display: block; }
-  .modal-close { position: absolute; top: 12px; right: 12px; background: var(--white); border: 1px solid var(--border); width: 28px; height: 28px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; color: var(--black); z-index: 10; font-family: var(--font); }
-  .modal-content { padding: 32px 28px; display: flex; flex-direction: column; border-left: 1px solid var(--border); }
-  .modal-artist { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
-  .modal-represented { font-size: 11px; color: var(--mid-gray); margin-bottom: 10px; }
-  .modal-title { font-size: 14px; color: #444; margin-bottom: 12px; }
-  .modal-meta { font-size: 12px; color: var(--mid-gray); margin-bottom: 16px; line-height: 1.7; border-top: 1px solid var(--border); padding-top: 12px; }
-  .modal-price { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-  .modal-status { margin-bottom: 20px; }
-
-  .purchase-section h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 10px; }
-  .purchase-options { display: flex; flex-direction: column; gap: 8px; }
-  .btn { display: block; width: 100%; padding: 11px 16px; font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; border: 1px solid var(--black); transition: all 0.1s; text-align: center; text-decoration: none; }
-  .btn-primary { background: var(--black); color: var(--white); }
-  .btn-primary:hover { background: #333; }
-  .btn-outline { background: transparent; color: var(--black); }
-  .btn-outline:hover { background: var(--off-white); }
-  .btn-disabled { background: var(--light-gray); color: var(--mid-gray); border-color: var(--border); cursor: not-allowed; }
-  .waitlist-note { font-size: 11px; color: var(--mid-gray); text-align: center; line-height: 1.6; margin-top: 8px; }
-
-  .commit-form { display: none; flex-direction: column; gap: 12px; }
-  .commit-form.open { display: flex; }
-  .form-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-  .form-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 4px; display: block; }
-  .form-group { display: flex; flex-direction: column; }
-  .form-group input { border: 1px solid var(--border); padding: 9px 10px; font-family: var(--font); font-size: 13px; background: var(--white); color: var(--black); outline: none; transition: border-color 0.1s; border-radius: 0; -webkit-appearance: none; }
-  .form-group input:focus { border-color: var(--black); }
-  .checkbox-group { display: flex; gap: 10px; align-items: flex-start; }
-  .checkbox-group input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--black); width: 14px; height: 14px; }
-  .checkbox-group label { font-size: 11px; color: var(--mid-gray); line-height: 1.6; }
-  .form-back { background: none; border: none; font-size: 11px; color: var(--mid-gray); cursor: pointer; text-decoration: underline; text-align: left; padding: 0; font-family: var(--font); }
-
-  .success-state { display: none; flex-direction: column; gap: 10px; padding: 16px 0; }
-  .success-state.open { display: flex; }
-  .success-title { font-size: 15px; font-weight: 700; }
-  .success-body { font-size: 12px; color: #444; line-height: 1.6; }
-
-  .page-message { padding: 80px 24px; text-align: center; font-size: 12px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
-  .error-banner { display: none; background: #fff8e1; border-bottom: 1px solid #ffe082; padding: 10px 24px; font-size: 12px; color: #7a5a00; }
-  footer { border-top: 1px solid var(--border); padding: 24px; font-size: 12px; color: var(--mid-gray); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-</style>
-</head>
-<body>
-
-<header>
-  <a href="index.html" class="logo">Conners Conners</a>
-  <nav>
-    <a href="index.html">Works</a>
-    <a href="artists.html" class="active">Artists</a>
-  </nav>
-</header>
-
-<div class="error-banner" id="error-banner">
-  Unable to load works from the sheet — check your connection and refresh.
-</div>
-
-<div id="mode-banner" style="display:none;background:#fdf3e3;border-bottom:1px solid #e8c97a;padding:12px 24px;font-size:13px;color:#7a5a00;text-align:center"></div>
-
-<section class="intro">
-  <p class="intro-eyebrow">Conners Conners Gallery — Fundraiser 2026</p>
-  <h1>Artists</h1>
-</section>
-
-<main id="artist-list">
-  <div class="page-message">Loading works…</div>
-</main>
-
-<footer>
-  <span>Conners Conners Gallery</span>
-  <span id="footer-year"></span>
-</footer>
-
-<!-- MODAL (identical to index.html) -->
-<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true">
-  <div class="modal">
-    <div class="modal-image-panel">
-      <span class="work-image-placeholder" id="modal-img-placeholder">No image</span>
-      <img id="modal-img" src="" alt="" style="display:none">
-    </div>
-    <div class="modal-content">
-      <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
-      <p class="modal-artist" id="modal-artist"></p>
-      <p class="modal-represented" id="modal-represented" style="display:none"></p>
-      <p class="modal-title" id="modal-title"></p>
-      <div class="modal-meta" id="modal-meta"></div>
-      <div class="modal-price" id="modal-price"></div>
-      <div class="modal-status" id="modal-status"></div>
-
-      <div class="purchase-section" id="purchase-section">
-        <h3>Purchase this work</h3>
-        <div class="purchase-options">
-          <button class="btn btn-primary" id="btn-transfer" onclick="showForm('transfer')">Commit — bank transfer</button>
-          <button class="btn btn-outline" id="btn-desk" onclick="showForm('desk')">Commit — pay at desk</button>
-        </div>
-      </div>
-
-      <form class="commit-form" id="commit-form" onsubmit="submitCommit(event)">
-        <div class="form-section-title" id="form-title">Commit to purchase</div>
-        <div class="form-group">
-          <label class="form-label">Full name</label>
-          <input type="text" id="f-name" required placeholder="Your name">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Email</label>
-          <input type="email" id="f-email" required placeholder="your@email.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Phone</label>
-          <input type="tel" id="f-phone" required placeholder="04xx xxx xxx">
-        </div>
-        <div class="checkbox-group" id="transfer-checkbox-group" style="display:none">
-          <input type="checkbox" id="f-commit-check">
-          <label for="f-commit-check">I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.</label>
-        </div>
-        <button type="submit" class="btn btn-primary" id="submit-btn">Submit commitment</button>
-        <button type="button" class="form-back" onclick="showPurchaseOptions()">← Back</button>
-      </form>
-
-      <div class="success-state" id="success-state">
-        <div class="success-title">You're in the queue.</div>
-        <div class="success-body" id="success-body"></div>
-        <button class="btn btn-outline" onclick="closeModal()" style="width:auto;padding:9px 20px;margin-top:4px">Close</button>
-      </div>
-
-      <div id="sold-state" style="display:none">
-        <p class="waitlist-note">This work has been sold.</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- VIP welcome overlay -->
-<div class="vip-overlay" id="vip-overlay" role="dialog" aria-modal="true" aria-label="VIP welcome">
-  <div class="vip-inner">
-    <div class="vip-eyebrow">VIP access</div>
-    <div class="vip-welcome" id="vip-welcome"></div>
-    <div class="vip-image" id="vip-image"><img id="vip-img" alt=""></div>
-    <div class="vip-artist" id="vip-artist"></div>
-    <div class="vip-title" id="vip-title"></div>
-    <div class="vip-tap">Tap anywhere to enter</div>
-  </div>
-</div>
-
-<script>
-const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbwm1RTBH6_pfJgPmzQApy4FbOFqQJmwVOAgpdzrS-45Yp_j88qRJyZnBeCX-5ovgaR8/exec';
-const POLL_INTERVAL = 30000;
-
-let allWorks = [], currentWork = null, commitType = '';
-let galleryMode = 'browse_only';
-
-// VIP token state (step 3, frontend token detection)
-let vipToken = '';
-let tokenValid = false;
-let vipInfo = null;
-const urlParams = new URLSearchParams(window.location.search);
-vipToken = urlParams.get('token') || '';
-const previewKey = urlParams.get('preview') || '';
-
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('footer-year').textContent = new Date().getFullYear();
-  loadWorks();
-  document.getElementById('modal-overlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('modal-overlay')) closeModal();
-  });
-  document.getElementById('modal-close').addEventListener('click', closeModal);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-  // VIP welcome tap-to-dismiss
-  document.getElementById('vip-overlay').addEventListener('click', dismissVip);
-  setInterval(pollStatus, POLL_INTERVAL);
-});
-
-// VIP welcome — minimal presentation of one random available work
-function maybeShowVip() {
-  if (!tokenValid || !vipInfo) return;
-  const seenKey = 'cc_vip_welcome_seen_' + vipToken;
-  if (sessionStorage.getItem(seenKey)) return;
-  document.getElementById('vip-welcome').textContent = 'Welcome, ' + (vipInfo.name || 'guest');
-
-  // Random available work that has an image
-  const pool = allWorks.filter(w => w.status === 'available' && w.imageUrl);
-  const pick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
-  const imageWrap = document.getElementById('vip-image');
-  if (pick) {
-    const img = document.getElementById('vip-img');
-    img.src = pick.imageUrl;
-    img.alt = (pick.title || 'Artwork') + (pick.artist ? ' by ' + pick.artist : '');
-    document.getElementById('vip-artist').textContent = pick.artist || 'Unknown artist';
-    document.getElementById('vip-title').textContent = pick.title || '';
-    imageWrap.style.display = 'block';
-  } else {
-    imageWrap.style.display = 'none';
+  if (action === 'adminGetVipList') {
+    if (pwd !== ADMIN_PASSWORD) return jsonResponse({ error: 'Unauthorised' });
+    return handleAdminGetVipList();
   }
-
-  document.getElementById('vip-overlay').classList.add('open');
+  if (action === 'adminCopyToken') {
+    if (pwd !== ADMIN_PASSWORD) return jsonResponse({ error: 'Unauthorised' });
+    return handleAdminCopyToken(e.parameter.token || '');
+  }
+  if (action === 'selfExtend') {
+    return handleSelfExtendGet(e.parameter);
+  }
+  return jsonResponse({ error: 'Unknown action' });
 }
 
-function dismissVip() {
-  sessionStorage.setItem('cc_vip_welcome_seen_' + vipToken, '1');
-  document.getElementById('vip-overlay').classList.remove('open');
+// =====================================================================
+// POST
+// =====================================================================
+function doPost(e) {
+  let payload;
+  try { payload = JSON.parse(e.postData.contents); }
+  catch { return jsonResponse({ error: 'Invalid JSON' }); }
+
+  const { action } = payload;
+
+  if (action === 'commitPurchase') return handleCommit(payload);
+
+  const isVol   = payload.pwd === VOLUNTEER_PASSWORD || payload.pwd === ADMIN_PASSWORD;
+  const isAdmin = payload.pwd === ADMIN_PASSWORD;
+
+  if (!isVol) return jsonResponse({ error: 'Unauthorised' });
+
+  if (action === 'confirmSold')    return handleConfirmSold(payload);
+  if (action === 'expireFirst')    return handleExpireFirst(payload);
+  if (action === 'withdrawFirst')  return handleWithdrawFirst(payload);
+  if (action === 'closeWork')      return handleCloseWork(payload);
+  if (action === 'setStatus')      return handleSetStatus(payload);
+  if (action === 'extendTimer')    return handleExtendTimer(payload);
+  if (action === 'pauseTimer')     return handlePauseTimer(payload);
+  if (action === 'unpauseTimer')   return handleUnpauseTimer(payload);
+  if (action === 'markPayLater')   return handleMarkPayLater(payload);
+
+  if (!isAdmin) return jsonResponse({ error: 'Admin password required' });
+
+  if (action === 'closeAll')                return handleCloseAll(payload);
+  if (action === 'setGalleryMode')          return handleSetGalleryMode(payload);
+  if (action === 'scheduleGalleryMode')     return handleScheduleGalleryMode(payload);
+  if (action === 'adminResendToken')        return handleAdminResendToken(payload);
+  if (action === 'adminToggleTokenActive')  return handleAdminToggleTokenActive(payload);
+  if (action === 'adminImportVipList')      return handleAdminImportVipList(payload);
+
+  return jsonResponse({ error: 'Unknown action' });
 }
 
-async function loadWorks() {
-  try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.works && data.works.length > 0) {
-      allWorks = data.works.filter(w => w.id && (w.artist || w.title));
-      tokenValid = data.tokenValid === true;
-      vipInfo = data.vipInfo || null;
-      if (data.mode) { galleryMode = data.mode; applyGalleryMode(); }
-      maybeShowVip();
-      renderWorks();
+// =====================================================================
+// GALLERY MODE
+// =====================================================================
+function getGalleryMode() {
+  return getConfig().galleryMode || 'browse_only';
+}
+
+function getConfig() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let sheet = ss.getSheetByName('Config');
+  if (!sheet) {
+    sheet = ss.insertSheet('Config');
+    sheet.appendRow(['key','value']);
+    sheet.appendRow(['galleryMode','browse_only']);
+    sheet.appendRow(['scheduledVipWindow','']);
+    sheet.appendRow(['scheduledLive','']);
+  }
+  const data = sheet.getDataRange().getValues();
+  const config = {};
+  data.slice(1).forEach(row => { if (row[0]) config[String(row[0])] = String(row[1]||''); });
+  return config;
+}
+
+function setConfig(key, value) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  let sheet = ss.getSheetByName('Config');
+  if (!sheet) { getConfig(); sheet = ss.getSheetByName('Config'); }
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === key) { sheet.getRange(i + 1, 2).setValue(value); return; }
+  }
+  sheet.appendRow([key, value]);
+}
+
+function handleSetGalleryMode(payload) {
+  setConfig('galleryMode', payload.mode);
+  // Manual mode change clears any pending scheduled transitions
+  setConfig('scheduledVipWindow', '');
+  setConfig('scheduledLive', '');
+  return jsonResponse({ success: true, mode: payload.mode });
+}
+
+function handleScheduleGalleryMode(payload) {
+  // payload.target is 'vip_window' or 'live'
+  // payload.scheduledTime is ISO datetime string, or '' to cancel
+  const target = String(payload.target || '');
+  const time = String(payload.scheduledTime || '');
+  if (target === 'vip_window') {
+    setConfig('scheduledVipWindow', time);
+    return jsonResponse({ success: true, scheduledFor: 'vip_window', time });
+  }
+  if (target === 'live') {
+    setConfig('scheduledLive', time);
+    return jsonResponse({ success: true, scheduledFor: 'live', time });
+  }
+  return jsonResponse({ success: false, error: 'Unknown schedule target: ' + target });
+}
+
+function checkGalleryMode() {
+  // Time-driven trigger, runs every minute. Handles two scheduled transitions:
+  // browse_only -> vip_window (at scheduledVipWindow time)
+  // vip_window -> live         (at scheduledLive time)
+  const config = getConfig();
+  const now = new Date();
+  const currentMode = config.galleryMode || 'browse_only';
+
+  if (config.scheduledVipWindow && currentMode === 'browse_only') {
+    const t = new Date(config.scheduledVipWindow);
+    if (!isNaN(t) && now >= t) {
+      setConfig('galleryMode', 'vip_window');
+      setConfig('scheduledVipWindow', '');
       return;
     }
+  }
+  if (config.scheduledLive && (currentMode === 'browse_only' || currentMode === 'vip_window')) {
+    const t = new Date(config.scheduledLive);
+    if (!isNaN(t) && now >= t) {
+      setConfig('galleryMode', 'live');
+      setConfig('scheduledLive', '');
+      return;
+    }
+  }
+}
+
+// =====================================================================
+// VIP TOKEN (new, step 2)
+// =====================================================================
+function getOrCreateVipsSheet(ss) {
+  let sheet = ss.getSheetByName('VIPs');
+  if (!sheet) {
+    sheet = ss.insertSheet('VIPs');
+    sheet.appendRow(['Token','Name','Email','Phone','Curator','First seen','Active','Batch']);
+    sheet.getRange(1,1,1,8).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function lookupVipByToken(token) {
+  if (!token) return null;
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = getOrCreateVipsSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(token)) {
+      return {
+        row: i + 1,
+        token: String(data[i][0]||''),
+        name: String(data[i][1]||''),
+        email: String(data[i][2]||''),
+        phone: String(data[i][3]||''),
+        attribution: String(data[i][4]||''),
+        firstSeen: String(data[i][5]||''),
+        active: String(data[i][6]||'true') === 'true',
+        batch: String(data[i][7]||''),
+      };
+    }
+  }
+  return null;
+}
+
+function validateToken(token) {
+  const vip = lookupVipByToken(token);
+  if (!vip || !vip.active) return { valid: false, vip: null };
+  // Set first-seen timestamp if not already set
+  if (!vip.firstSeen) {
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = getOrCreateVipsSheet(ss);
+    sheet.getRange(vip.row, 6).setValue(new Date().toISOString());
+  }
+  return { valid: true, vip: { name: vip.name, attribution: vip.attribution } };
+}
+
+function generateVipToken() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = getOrCreateVipsSheet(ss);
+  const existing = new Set(sheet.getDataRange().getValues().slice(1).map(r => String(r[0])));
+  let token;
+  do { token = Utilities.getUuid().replace(/-/g, '').substring(0, 24); } while (existing.has(token));
+  return token;
+}
+
+// =====================================================================
+// ADMIN VIP MANAGEMENT (new, step 2)
+// =====================================================================
+function handleAdminGetVipList() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = getOrCreateVipsSheet(ss);
+  const data = sheet.getDataRange().getValues();
+  return jsonResponse({
+    vips: data.slice(1).filter(r => r[0]).map(r => ({
+      token: String(r[0]||''),
+      name: String(r[1]||''),
+      email: String(r[2]||''),
+      phone: String(r[3]||''),
+      attribution: String(r[4]||''),
+      firstSeen: String(r[5]||''),
+      active: String(r[6]||'true') === 'true',
+      batch: String(r[7]||''),
+    })),
+  });
+}
+
+function handleAdminCopyToken(token) {
+  if (!token) return jsonResponse({ success: false, error: 'Missing token' });
+  const vip = lookupVipByToken(token);
+  if (!vip) return jsonResponse({ success: false, error: 'Token not found' });
+  return jsonResponse({ success: true, url: GALLERY_URL + '?token=' + encodeURIComponent(token) });
+}
+
+function handleAdminResendToken(payload) {
+  const token = payload.token;
+  if (!token) return jsonResponse({ success: false, error: 'Missing token' });
+  const vip = lookupVipByToken(token);
+  if (!vip) return jsonResponse({ success: false, error: 'Token not found' });
+  if (!vip.email) return jsonResponse({ success: false, error: 'No email on file for this VIP' });
+  try {
+    sendVipTokenEmail(vip, token);
+    return jsonResponse({ success: true });
   } catch(e) {
-    document.getElementById('error-banner').style.display = 'block';
-  }
-  allWorks = [{ id: 'w001', artist: 'Ry Haskings', title: 'Rolpanel Nova Kickback', status: 'available', imageUrl: '', price: '', representedBy: 'Conners Conners' }];
-  renderWorks();
-}
-
-// Sort helpers
-function lastName(n) { return String(n || 'Unknown artist').trim().split(/\s+/).pop().toLowerCase(); }
-function worknum(w) { const m = String(w.id || '').match(/\d+/); return m ? parseInt(m[0], 10) : Infinity; }
-function surnameCmp(a, b) { return lastName(a.artist).localeCompare(lastName(b.artist)) || String(a.title || '').localeCompare(String(b.title || '')); }
-
-function workTile(w) {
-  const n = worknum(w);
-  const numChip = isFinite(n) ? `<span class="work-num">#${n}</span>` : '';
-  const img = w.imageUrl
-    ? `<img src="${esc(w.imageUrl)}" alt="${esc(w.title||'')}" loading="lazy">`
-    : '<span class="work-image-placeholder">No image</span>';
-  return `
-    <div class="work-tile" data-work-id="${w.id}" onclick="openWork('${w.id}')">
-      <div class="work-image-wrap">
-        ${numChip}
-        ${img}
-        <div class="work-artist-overlay">${esc(w.artist||'Unknown artist')}</div>
-      </div>
-      <div class="work-info">
-        <div class="work-title">${esc(w.title||'Untitled')}</div>
-        <div class="work-footer">
-          <span class="work-price">${w.price ? '$'+Number(w.price).toLocaleString() : ''}</span>
-          <span class="status-badge status-${w.status||'available'}">${statusLabel(w.status)}</span>
-        </div>
-      </div>
-    </div>`;
-}
-
-function renderWorks() {
-  const container = document.getElementById('artist-list');
-  const works = allWorks.slice().sort(surnameCmp);
-  if (!works.length) {
-    container.innerHTML = '<div class="page-message">No works found.</div>';
-    return;
-  }
-  container.innerHTML = '<div class="works-grid">' + works.map(workTile).join('') + '</div>';
-}
-
-// Phase-aware UI (step 5)
-function applyGalleryMode() {
-  const banner = document.getElementById('mode-banner');
-  if (!banner) return;
-  if (galleryMode === 'browse_only') {
-    banner.style.display = 'block';
-    banner.textContent = 'Browse mode. Purchases open at the event.';
-  } else if (galleryMode === 'vip_window') {
-    banner.style.display = 'block';
-    banner.textContent = tokenValid
-      ? 'VIP early access. Public sales open shortly.'
-      : 'Purchases open shortly. Browse the catalogue now.';
-  } else if (galleryMode === 'closed') {
-    banner.style.display = 'block';
-    banner.textContent = 'Sales are now closed. Thank you for joining us!';
-  } else {
-    banner.style.display = 'none';
+    console.error('handleAdminResendToken:', e);
+    return jsonResponse({ success: false, error: 'Email send failed' });
   }
 }
 
-// Live polling — same logic as index.html
-async function pollStatus() {
+function handleAdminToggleTokenActive(payload) {
+  const token = payload.token;
+  const active = payload.active === true || payload.active === 'true';
+  if (!token) return jsonResponse({ success: false, error: 'Missing token' });
+  const vip = lookupVipByToken(token);
+  if (!vip) return jsonResponse({ success: false, error: 'Token not found' });
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = getOrCreateVipsSheet(ss);
+  sheet.getRange(vip.row, 7).setValue(active ? 'true' : 'false');
+  return jsonResponse({ success: true, active });
+}
+
+function handleAdminImportVipList(payload) {
+  // payload.csv = the CSV string (with header row) from curator's email tool
+  // payload.batch = optional batch label (e.g. 'fundraiser-2026')
+  const csv = String(payload.csv || '');
+  const batch = String(payload.batch || '');
+  if (!csv) return jsonResponse({ success: false, error: 'No CSV provided' });
+
+  const rows = parseCsv(csv);
+  if (rows.length < 2) return jsonResponse({ success: false, error: 'CSV has no data rows' });
+
+  const headers = rows[0].map(h => String(h||'').trim().toLowerCase());
+  const colName = headers.findIndex(h => h === 'name' || h === 'full name');
+  const colEmail = headers.findIndex(h => h === 'email' || h === 'email address');
+  const colPhone = headers.findIndex(h => h === 'phone' || h === 'mobile' || h === 'phone number');
+  const colAttribution = headers.findIndex(h => h === 'curator' || h === 'attribution' || h === 'curator attribution');
+
+  if (colName === -1 || colEmail === -1) {
+    return jsonResponse({ success: false, error: 'CSV must have at least Name and Email columns (case-insensitive)' });
+  }
+
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = getOrCreateVipsSheet(ss);
+  const added = [];
+  const skipped = [];
+
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r || !r.length) continue;
+    const name = String(r[colName] || '').trim();
+    const email = String(r[colEmail] || '').trim();
+    const phone = colPhone >= 0 ? String(r[colPhone] || '').trim() : '';
+    const attribution = colAttribution >= 0 ? String(r[colAttribution] || '').trim() : '';
+
+    if (!name || !email) { skipped.push('Row ' + (i+1) + ': missing name or email'); continue; }
+
+    const token = generateVipToken();
+    sheet.appendRow([token, name, email, phone, attribution, '', 'true', batch]);
+    added.push({ token, name, email, attribution, url: GALLERY_URL + '?token=' + encodeURIComponent(token) });
+  }
+
+  return jsonResponse({
+    success: true,
+    added: added.length,
+    skipped: skipped.length,
+    skipReasons: skipped,
+    rows: added,
+  });
+}
+
+function parseCsv(text) {
+  // Basic CSV parser supporting quoted fields with embedded commas and CRLF
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i+1] === '"') { cell += '"'; i++; }
+        else inQuotes = false;
+      } else { cell += ch; }
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { row.push(cell); cell = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && text[i+1] === '\n') i++;
+        row.push(cell); cell = '';
+        rows.push(row); row = [];
+      } else { cell += ch; }
+    }
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  while (rows.length && rows[rows.length-1].length === 1 && !rows[rows.length-1][0]) rows.pop();
+  return rows;
+}
+
+// =====================================================================
+// COMMIT PURCHASE
+// =====================================================================
+function handleCommit(payload) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
   try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.works) return;
-    // Re-validate token on every poll (curator may have revoked mid-session)
-    tokenValid = data.tokenValid === true;
-    vipInfo = data.vipInfo || null;
-    if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderWorks(); }
-    const fresh = data.works.filter(w => w.id && (w.artist || w.title));
-    fresh.forEach(fw => {
-      const existing = allWorks.find(w => w.id === fw.id);
-      if (!existing || existing.status === fw.status) return;
-      existing.status = fw.status;
-      document.querySelectorAll(`[data-work-id="${fw.id}"] .status-badge`).forEach(badge => {
-        badge.className = `status-badge status-${fw.status}`;
-        badge.textContent = statusLabel(fw.status);
-        badge.classList.add('status-changed');
-        setTimeout(() => badge.classList.remove('status-changed'), 700);
-      });
-      if (currentWork && currentWork.id === fw.id) {
-        currentWork.status = fw.status;
-        document.getElementById('modal-status').innerHTML = `<span class="status-badge status-${fw.status}">${statusLabel(fw.status)}</span>`;
-        if (fw.status === 'sold') {
-          document.getElementById('purchase-section').style.display = 'none';
-          document.getElementById('commit-form').classList.remove('open');
-          document.getElementById('sold-state').style.display = 'block';
-        }
+    const ss         = SpreadsheetApp.openById(SHEET_ID);
+    const worksSheet = ss.getSheetByName('Works');
+    const queueSheet = ss.getSheetByName('Queue');
+
+    const workRow = findWorkRow(worksSheet, payload.workId);
+    if (!workRow) return jsonResponse({ success: false, error: 'Work not found' });
+
+    const currentStatus = worksSheet.getRange(workRow, 8).getValue();
+    if (currentStatus === 'sold') return jsonResponse({ success: false, error: 'Work already sold' });
+
+    // ---- DIGITAL: unlimited item, sells in every mode, no one-of-one machinery ----
+    // Branch before the phase gate so it stays buyable in browse_only, vip_window
+    // and closed. Hands off and returns before any queue/pending/timer logic.
+    if (currentStatus === 'digital') return handleDigitalCommit(payload, ss, worksSheet);
+
+    // ---- STEP 6: Backend phase gate (non-digital) ----
+    // Reject commits outright in browse_only and closed. In vip_window, require
+    // a valid VIP token. The frontend already hides commit UI in these phases;
+    // this is defence in depth against direct API POSTs.
+    const mode = getGalleryMode();
+    if (mode === 'browse_only') {
+      return jsonResponse({ success: false, error: 'Purchases are not yet open.' });
+    }
+    if (mode === 'closed') {
+      return jsonResponse({ success: false, error: 'Purchases are closed.' });
+    }
+
+    // ---- STEP 6: Token attribution ----
+    // Validate optional vipToken from payload. Store only if valid, otherwise
+    // empty string. Token is required during vip_window phase.
+    let attributionToken = '';
+    if (payload.vipToken) {
+      const tokenCheck = validateToken(payload.vipToken);
+      if (tokenCheck.valid) attributionToken = String(payload.vipToken);
+    }
+    if (mode === 'vip_window' && !attributionToken) {
+      return jsonResponse({ success: false, error: 'VIP early access only. Public sales open shortly.' });
+    }
+
+    const queueData = queueSheet.getDataRange().getValues();
+    const existing  = queueData.filter(r => String(r[0]) === String(payload.workId));
+    const position  = existing.length + 1;
+    const timestamp = payload.timestamp || new Date().toISOString();
+
+    queueSheet.appendRow([
+      payload.workId, payload.name, payload.email, payload.phone,
+      payload.paymentType, timestamp, position,
+      '', // legacy vipOptIn slot, stripped step 9, kept as placeholder so col 9 = vipToken positioning is preserved
+      attributionToken,
+    ]);
+
+    if (currentStatus === 'available') worksSheet.getRange(workRow, 8).setValue('pending');
+
+    const isEventTime = isEventHours();
+    const wt  = payload.workTitle || 'this work';
+    const pf  = payload.price ? '$' + Number(payload.price).toLocaleString() : '';
+    const isTransfer = payload.paymentType === 'transfer';
+
+    if (position === 1) {
+      if (isEventTime) addTimerRow(getOrCreateTimersSheet(ss), payload.workId, timestamp);
+      sendPaymentDetailsEmail(payload);
+
+      if (isTransfer) {
+        sendSms(payload.phone,
+          `You've secured your spot for ${wt} at Conners Conners — exciting! ` +
+          `Transfer ${pf} to PayID (${PAYID_TYPE}): ${PAYID} — Bank: ${BANK_NAME} ` +
+          `— Ref: ${payload.name} — ${wt}. ` +
+          (isEventTime
+            ? `You have 30 min to complete payment. Your spot will be released automatically if payment isn't received. Pop by the sales desk if you need to arrange something!`
+            : `Please transfer at your earliest convenience. If you have any questions, reply to your confirmation email.`)
+        );
+      } else {
+        sendSms(payload.phone,
+          `You've secured your spot for ${wt} at Conners Conners — exciting! ` +
+          `Pop by the sales desk to finalise your purchase of ${pf}. See you soon!`
+        );
       }
-    });
-  } catch(e) {}
+
+      if (!isEventTime) {
+        sendGalleryNotificationEmail(payload);
+        schedulePostEventFollowUp(ss, payload.workId, timestamp, payload.name, payload.email, payload.phone, wt, pf);
+      }
+    } else {
+      sendWaitlistConfirmationEmail(payload, position);
+      sendSms(payload.phone, `You're #${position} in the queue for ${wt} at Conners Conners. We'll be in touch if your position moves up!`);
+    }
+
+    return jsonResponse({ success: true, works: getPublicWorks(true) });
+  } finally { lock.releaseLock(); }
 }
 
-function openWork(id) {
-  currentWork = allWorks.find(w => w.id === id);
-  if (!currentWork) return;
-  const img = document.getElementById('modal-img');
-  const ph = document.getElementById('modal-img-placeholder');
-  if (currentWork.imageUrl) { img.src = currentWork.imageUrl; img.alt = currentWork.title||''; img.style.display='block'; ph.style.display='none'; }
-  else { img.style.display='none'; ph.style.display='block'; }
-  document.getElementById('modal-artist').textContent = currentWork.artist||'Unknown artist';
-  const repEl = document.getElementById('modal-represented');
-  if (currentWork.representedBy) { repEl.textContent = 'Represented by ' + currentWork.representedBy; repEl.style.display='block'; }
-  else { repEl.style.display='none'; }
-  document.getElementById('modal-title').textContent = currentWork.title||'Untitled';
-  document.getElementById('modal-meta').innerHTML = [currentWork.medium, currentWork.dimensions, currentWork.year].filter(Boolean).join('<br>');
-  document.getElementById('modal-price').textContent = currentWork.price ? '$'+Number(currentWork.price).toLocaleString() : '';
-  document.getElementById('modal-status').innerHTML = `<span class="status-badge status-${currentWork.status||'available'}">${statusLabel(currentWork.status)}</span>`;
-  showPurchaseOptions();
-  document.getElementById('modal-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
-  document.body.style.overflow = '';
-  currentWork = null;
-}
-
-function showPurchaseOptions() {
-  document.getElementById('purchase-section').style.display = 'block';
-  document.getElementById('commit-form').classList.remove('open');
-  document.getElementById('success-state').classList.remove('open');
-  document.getElementById('sold-state').style.display = 'none';
-  // Phase-aware: hide commit during browse_only or vip_window-for-public (step 5)
-  if (galleryMode === 'browse_only' || (galleryMode === 'vip_window' && !tokenValid)) {
-    document.getElementById('purchase-section').style.display = 'none';
-    document.getElementById('sold-state').style.display = 'block';
-    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Purchases open at the event. See you there!</p>';
-    return;
+// =====================================================================
+// DIGITAL COMMIT (unlimited item: no queue, no pending, no timer, no expiry)
+// =====================================================================
+function handleDigitalCommit(payload, ss, worksSheet) {
+  // Optional VIP attribution. No token is required for a digital purchase, but
+  // if a valid one is present we record it (keeps the existing attribution log).
+  let attributionToken = '';
+  if (payload.vipToken) {
+    const tokenCheck = validateToken(payload.vipToken);
+    if (tokenCheck.valid) attributionToken = String(payload.vipToken);
   }
-  if (galleryMode === 'closed') {
-    document.getElementById('purchase-section').style.display = 'none';
-    document.getElementById('sold-state').style.display = 'block';
-    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Sales are now closed. Thank you!</p>';
-    return;
+
+  const timestamp = payload.timestamp || new Date().toISOString();
+  const ordersSheet = getOrCreateDigitalOrdersSheet(ss);
+  ordersSheet.appendRow([
+    payload.workId, payload.workTitle || '', payload.artist || '',
+    payload.name || '', payload.email || '', payload.phone || '',
+    payload.paymentType || '', payload.price || '', timestamp, attributionToken,
+  ]);
+
+  // Buyer payment email + SMS. Same PayID/desk details as a normal commit, with
+  // digital wording: pay within 48 hours, send proof of payment, artist emails
+  // the file once payment is confirmed.
+  sendDigitalOrderEmail(payload);
+
+  const wt = payload.workTitle || 'this download';
+  const pf = payload.price ? '$' + Number(payload.price).toLocaleString() : 'the amount';
+  const isTransfer = payload.paymentType === 'transfer';
+  if (isTransfer) {
+    sendSms(payload.phone,
+      `Thanks for your order of ${wt} at Conners Conners! ` +
+      `Transfer ${pf} via PayID (${PAYID_TYPE}): ${PAYID}. Bank: ${BANK_NAME}. Reference: ${payload.name}, ${wt}. ` +
+      `Please pay within ${PAYMENT_WINDOW} hours and email proof of payment (see your confirmation email). ` +
+      `The artist will email your download once payment is confirmed.`
+    );
+  } else {
+    sendSms(payload.phone,
+      `Thanks for your order of ${wt} at Conners Conners! ` +
+      `Pay ${pf} at the sales desk. The artist will email your download once your payment is received.`
+    );
   }
-  const s = currentWork?.status || 'available';
-  if (s === 'sold') { document.getElementById('purchase-section').style.display='none'; document.getElementById('sold-state').style.display='block'; return; }
-  const pend = s === 'pending';
-  document.getElementById('btn-transfer').textContent = pend ? 'Join waitlist — bank transfer' : 'Commit — bank transfer';
-  document.getElementById('btn-desk').textContent = pend ? 'Join waitlist — pay at desk' : 'Commit — pay at desk';
+
+  return jsonResponse({ success: true, digital: true, works: getPublicWorks(true) });
 }
 
-function showForm(type) {
-  commitType = type;
-  document.getElementById('purchase-section').style.display = 'none';
-  document.getElementById('commit-form').classList.add('open');
-  const pend = currentWork?.status === 'pending';
-  document.getElementById('form-title').textContent = pend
-    ? (type==='transfer' ? 'Join waitlist — bank transfer' : 'Join waitlist — pay at desk')
-    : (type==='transfer' ? 'Commit — bank transfer' : 'Commit — pay at desk');
-  const cbg = document.getElementById('transfer-checkbox-group');
-  cbg.style.display = type==='transfer' ? 'flex' : 'none';
-  document.getElementById('f-commit-check').required = type==='transfer';
+function getOrCreateDigitalOrdersSheet(ss) {
+  let sheet = ss.getSheetByName('DigitalOrders');
+  if (!sheet) {
+    sheet = ss.insertSheet('DigitalOrders');
+    sheet.appendRow(['workId','workTitle','artist','name','email','phone','paymentType','price','timestamp','vipToken']);
+    sheet.getRange(1,1,1,10).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
 }
 
-async function submitCommit(e) {
-  e.preventDefault();
-  const btn = document.getElementById('submit-btn');
-  btn.textContent = 'Submitting…'; btn.disabled = true;
-  const payload = {
-    action: 'commitPurchase',
-    workId: currentWork.id, workTitle: currentWork.title, artist: currentWork.artist, price: currentWork.price,
-    name: document.getElementById('f-name').value.trim(),
-    email: document.getElementById('f-email').value.trim(),
-    phone: document.getElementById('f-phone').value.trim(),
-    paymentType: commitType,
-    vipToken: vipToken, // step 6: pass token for attribution
-    timestamp: new Date().toISOString(),
-  };
-  let success = false;
+// =====================================================================
+// PAY LATER
+// =====================================================================
+function handleMarkPayLater(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const timersSheet = getOrCreateTimersSheet(ss);
+  const timersData = timersSheet.getDataRange().getValues();
+  const idx = findTimerRow(timersData, payload.workId, payload.queueTimestamp);
+  if (idx >= 0) { timersSheet.getRange(idx + 1, 5).setValue('true'); timersSheet.getRange(idx + 1, 3).setValue('false'); }
+
+  const queueSheet = ss.getSheetByName('Queue');
+  const qd = queueSheet.getDataRange().getValues();
+  const buyerRow = qd.slice(1).find(r => String(r[0]) === String(payload.workId));
+  if (buyerRow) {
+    schedulePostEventFollowUp(ss, payload.workId, String(buyerRow[5]), String(buyerRow[1]), String(buyerRow[2]), String(buyerRow[3]), payload.workTitle||'', payload.price||'');
+  }
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: getTimerState() });
+}
+
+// =====================================================================
+// POST-EVENT FOLLOW-UP
+// =====================================================================
+function schedulePostEventFollowUp(ss, workId, timestamp, name, email, phone, workTitle, price) {
+  let sheet = ss.getSheetByName('FollowUps');
+  if (!sheet) { sheet = ss.insertSheet('FollowUps'); sheet.appendRow(['workId','timestamp','name','email','phone','workTitle','price','followUpTime','sent']); }
+  const followUpTime = new Date(Date.now() + PAYMENT_WINDOW * 3600000).toISOString();
+  sheet.appendRow([workId, timestamp, name, email, phone, workTitle, price, followUpTime, 'false']);
+}
+
+function checkPostEventFollowUp() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName('FollowUps');
+  if (!sheet) return;
+  const data = sheet.getDataRange().getValues();
+  const now = new Date();
+  data.slice(1).forEach((row, i) => {
+    if (String(row[8]) === 'true') return;
+    const followUpTime = new Date(String(row[7]||''));
+    if (isNaN(followUpTime) || now < followUpTime) return;
+    GmailApp.sendEmail(GALLERY_EMAIL,
+      `Payment check — ${String(row[5]||'a work')}`,
+      `Please check whether payment has been received from ${String(row[2]||'')} for "${String(row[5]||'')}"${row[6]?' ('+row[6]+')':''}.\n\nIf received: mark as sold in the dashboard.\nIf not: contact ${String(row[3]||'')} directly to discuss.\n\nConners Conners`,
+      { name: SENDER_NAME }
+    );
+    sheet.getRange(i + 2, 9).setValue('true');
+  });
+}
+
+function sendGalleryNotificationEmail(payload) {
   try {
-    const res = await fetch(SHEET_API_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
-    const data = await res.json();
-    success = data.success;
-    if (data.works) { allWorks = data.works.filter(w => w.id && (w.artist||w.title)); renderWorks(); }
-  } catch(err) { console.error(err); }
-  document.getElementById('commit-form').classList.remove('open');
-  document.getElementById('success-state').classList.add('open');
-  document.getElementById('success-body').innerHTML = success
-    ? (commitType==='transfer'
-        ? `Your commitment for <strong>${esc(currentWork.title||'this work')}</strong> has been received. Conners Conners will be in touch with bank details.`
-        : `Your commitment to pay at the desk for <strong>${esc(currentWork.title||'this work')}</strong> has been received.`)
-    : 'There was an issue submitting. Please speak to a volunteer.';
-  e.target.reset(); btn.disabled=false; btn.textContent='Submit commitment';
+    GmailApp.sendEmail(GALLERY_EMAIL,
+      `New post-event commitment — ${payload.workTitle||'a work'}`,
+      `${payload.name} has committed to purchase "${payload.workTitle||''}"${payload.price?' ('+payload.price+')':''}.\n\nContact: ${payload.email} / ${payload.phone}\n\nPayment details sent to buyer. A follow-up reminder will be sent in ${PAYMENT_WINDOW} hours.\n\nConners Conners`,
+      { name: SENDER_NAME }
+    );
+  } catch(e) { console.error('sendGalleryNotificationEmail failed:', e); }
 }
 
-function statusLabel(s) { return s==='sold'?'Sold':s==='pending'?'Pending':'Available'; }
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-</script>
-</body>
-</html>
+// =====================================================================
+// AUTO-EXPIRY TRIGGER
+// =====================================================================
+function checkExpiryTimers() {
+  if (!isEventHours()) return;
+  const ss          = SpreadsheetApp.openById(SHEET_ID);
+  const queueSheet  = ss.getSheetByName('Queue');
+  const timersSheet = getOrCreateTimersSheet(ss);
+  const queueData   = queueSheet.getDataRange().getValues();
+  const timersData  = timersSheet.getDataRange().getValues();
+  const now         = new Date();
+
+  const firstInQueue = {};
+  queueData.slice(1).forEach(row => {
+    const wid = String(row[0]);
+    if (!firstInQueue[wid]) firstInQueue[wid] = { workId: wid, name: String(row[1]||''), email: String(row[2]||''), phone: String(row[3]||''), paymentType: String(row[4]||''), timestamp: String(row[5]||'') };
+  });
+
+  Object.values(firstInQueue).forEach(buyer => {
+    const commitTime = new Date(buyer.timestamp);
+    if (isNaN(commitTime)) return;
+    const timerIdx  = findTimerRow(timersData, buyer.workId, buyer.timestamp);
+    const timerRow  = timerIdx >= 0 ? timersData[timerIdx] : null;
+    const paused    = timerRow ? String(timerRow[4]) === 'true' : false;
+    const warned    = timerRow ? String(timerRow[2]) === 'true' : false;
+    const expiryOvr = timerRow && timerRow[5] ? new Date(timerRow[5]) : null;
+    if (paused) return;
+    const expiryTime = expiryOvr || new Date(commitTime.getTime() + COMMIT_WINDOW_MINUTES * 60000);
+    const minLeft    = (expiryTime - now) / 60000;
+
+    if (minLeft <= 0) {
+      const result = removeFirstFromQueue(ss, buyer.workId);
+      removeTimerRow(timersSheet, buyer.workId, buyer.timestamp);
+      if (result.newFirst) {
+        sendPromotedEmail(result.newFirst, buyer.workId, 'expired');
+        sendSms(result.newFirst.phone||'',
+          `You're now first in the queue for ${result.newFirst.workTitle||'a work'} at Conners Conners! ` +
+          `Transfer $${Number(result.newFirst.price||0).toLocaleString()} to PayID (${PAYID_TYPE}): ${PAYID} ` +
+          `— ref: ${result.newFirst.name} — ${result.newFirst.workTitle||''}. Or come to the sales desk now!`
+        );
+        addTimerRow(timersSheet, buyer.workId, result.newFirst.timestamp || now.toISOString());
+      }
+    } else if (minLeft <= WARNING_BEFORE_MINUTES && !warned) {
+      const token = generateSelfExtendToken(buyer.workId, buyer.timestamp);
+      const extendUrl = ScriptApp.getService().getUrl() +
+        '?action=selfExtend&workId=' + encodeURIComponent(buyer.workId) +
+        '&ts=' + encodeURIComponent(buyer.timestamp) +
+        '&token=' + encodeURIComponent(token);
+      const wt = getWorkTitle(ss, buyer.workId);
+      sendSms(buyer.phone,
+        `Your commitment for ${wt} at Conners Conners will expire in less than 5 minutes. ` +
+        `Tap to extend: ${extendUrl} — or come to the sales desk now.`
+      );
+      setTimerWarning(timersSheet, buyer.workId, buyer.timestamp, timersData, timerIdx);
+    }
+  });
+}
+
+function handleSelfExtendGet(params) {
+  const { workId, ts, token } = params;
+  if (!workId || !ts || !token) return jsonResponse({ success: false, error: 'Missing params' });
+  const expected = generateSelfExtendToken(workId, ts);
+  if (token !== expected) return jsonResponse({ success: false, error: 'Invalid token' });
+
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const timersSheet = getOrCreateTimersSheet(ss);
+  const timersData  = timersSheet.getDataRange().getValues();
+  const idx = findTimerRow(timersData, workId, ts);
+  if (idx < 0) return jsonResponse({ success: false, error: 'Timer not found' });
+  if (String(timersData[idx][3]) === 'true') return jsonResponse({ success: false, error: 'Already extended' });
+
+  const newExpiry = new Date(Date.now() + SELF_EXTEND_MINUTES * 60000).toISOString();
+  const r = idx + 1;
+  timersSheet.getRange(r, 3).setValue('false');
+  timersSheet.getRange(r, 4).setValue('true');
+  timersSheet.getRange(r, 5).setValue('false');
+  timersSheet.getRange(r, 6).setValue(newExpiry);
+
+  return ContentService.createTextOutput(
+    `<html><body style="font-family:sans-serif;text-align:center;padding:40px">` +
+    `<h2>Time extended!</h2><p>You have ${SELF_EXTEND_MINUTES} more minutes. Please come to the sales desk or complete your transfer now.</p>` +
+    `</body></html>`
+  ).setMimeType(ContentService.MimeType.HTML);
+}
+
+function generateSelfExtendToken(workId, timestamp) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, workId + timestamp + VOLUNTEER_PASSWORD)
+    .map(b => ('0' + (b & 0xff).toString(16)).slice(-2)).join('').substring(0, 12);
+}
+
+function getWorkTitle(ss, workId) {
+  const ws = ss.getSheetByName('Works');
+  const wr = findWorkRow(ws, workId);
+  return wr ? String(ws.getRange(wr, 3).getValue()) : 'a work';
+}
+
+function isEventHours() {
+  const hour = parseInt(Utilities.formatDate(new Date(), EVENT_TIMEZONE, 'H'), 10);
+  return hour >= EVENT_START_HOUR && hour < EVENT_END_HOUR;
+}
+
+// =====================================================================
+// TIMER ACTIONS
+// =====================================================================
+function handleExtendTimer(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ts = getOrCreateTimersSheet(ss);
+  const td = ts.getDataRange().getValues();
+  const idx = findTimerRow(td, payload.workId, payload.queueTimestamp);
+  const newExp = new Date(Date.now() + SELF_EXTEND_MINUTES * 60000).toISOString();
+  if (idx >= 0) { const r=idx+1; ts.getRange(r,3).setValue('false'); ts.getRange(r,4).setValue('true'); ts.getRange(r,5).setValue('false'); ts.getRange(r,6).setValue(newExp); }
+  else ts.appendRow([payload.workId, payload.queueTimestamp, 'false','true','false', newExp]);
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: getTimerState() });
+}
+
+function handlePauseTimer(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ts = getOrCreateTimersSheet(ss);
+  const td = ts.getDataRange().getValues();
+  const idx = findTimerRow(td, payload.workId, payload.queueTimestamp);
+  if (idx >= 0) { ts.getRange(idx+1,5).setValue('true'); ts.getRange(idx+1,3).setValue('false'); }
+  else ts.appendRow([payload.workId, payload.queueTimestamp,'false','false','true','']);
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: getTimerState() });
+}
+
+function handleUnpauseTimer(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ts = getOrCreateTimersSheet(ss);
+  const td = ts.getDataRange().getValues();
+  const idx = findTimerRow(td, payload.workId, payload.queueTimestamp);
+  const newExp = new Date(Date.now() + COMMIT_WINDOW_MINUTES * 60000).toISOString();
+  if (idx >= 0) { ts.getRange(idx+1,5).setValue('false'); ts.getRange(idx+1,6).setValue(newExp); }
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: getTimerState() });
+}
+
+// =====================================================================
+// TIMER STATE
+// =====================================================================
+function getTimerState() {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ts = getOrCreateTimersSheet(ss);
+  const data = ts.getDataRange().getValues();
+  const qd   = ss.getSheetByName('Queue').getDataRange().getValues();
+  const ws   = ss.getSheetByName('Works');
+  const now  = new Date();
+
+  return data.slice(1).map(row => {
+    const workId = String(row[0]||''), qts = String(row[1]||'');
+    const warned = String(row[2])==='true', extended = String(row[3])==='true', paused = String(row[4])==='true';
+    const expiryOvr = row[5] ? new Date(row[5]) : null;
+    const commitTime = new Date(qts);
+    const expiryTime = expiryOvr || new Date(commitTime.getTime() + COMMIT_WINDOW_MINUTES * 60000);
+    const minLeft = Math.max(0, Math.ceil((expiryTime - now) / 60000));
+    const buyerRow  = qd.slice(1).find(r => String(r[0])===workId && String(r[5])===qts);
+    const buyerName = buyerRow ? String(buyerRow[1]||'') : '';
+    const workRow   = findWorkRow(ws, workId);
+    const workTitle = workRow ? String(ws.getRange(workRow, 3).getValue()) : workId;
+    return { workId, queueTimestamp: qts, warningShown: warned, extended, paused, minLeft, buyerName, workTitle };
+  }).filter(t => t.workId);
+}
+
+// =====================================================================
+// ADMIN ACTIONS
+// =====================================================================
+function handleConfirmSold(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ws = ss.getSheetByName('Works');
+  const wr = findWorkRow(ws, payload.workId);
+  if (!wr) return jsonResponse({ success: false, error: 'Work not found' });
+  ws.getRange(wr, 8).setValue('sold');
+  clearQueue(ss, payload.workId);
+  clearTimersForWork(ss, payload.workId);
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: getTimerState() });
+}
+
+function handleExpireFirst(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const qd = ss.getSheetByName('Queue').getDataRange().getValues();
+  const fr = qd.slice(1).find(r => String(r[0])===String(payload.workId));
+  const fts = fr ? String(fr[5]) : null;
+  const result = removeFirstFromQueue(ss, payload.workId);
+  if (fts) removeTimerRow(getOrCreateTimersSheet(ss), payload.workId, fts);
+  if (result.newFirst) {
+    sendPromotedEmail(result.newFirst, payload.workId, 'expired');
+    sendSms(result.newFirst.phone||'', `You're now first in the queue for ${result.newFirst.workTitle||'a work'} at Conners Conners! Come to the sales desk or complete your transfer now.`);
+    addTimerRow(getOrCreateTimersSheet(ss), payload.workId, result.newFirst.timestamp || new Date().toISOString());
+  }
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: getTimerState() });
+}
+
+function handleWithdrawFirst(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const qd = ss.getSheetByName('Queue').getDataRange().getValues();
+  const fr = qd.slice(1).find(r => String(r[0])===String(payload.workId));
+  const fts = fr ? String(fr[5]) : null;
+  const result = removeFirstFromQueue(ss, payload.workId);
+  if (fts) removeTimerRow(getOrCreateTimersSheet(ss), payload.workId, fts);
+  if (result.removed) sendWithdrawalConfirmationEmail(result.removed, payload.workId);
+  if (result.newFirst) {
+    sendPromotedEmail(result.newFirst, payload.workId, 'withdrawn');
+    sendSms(result.newFirst.phone||'', `You're now first in the queue for ${result.newFirst.workTitle||'a work'} at Conners Conners! Come to the sales desk or complete your transfer now.`);
+    addTimerRow(getOrCreateTimersSheet(ss), payload.workId, result.newFirst.timestamp || new Date().toISOString());
+  }
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: getTimerState() });
+}
+
+function handleCloseWork(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ws = ss.getSheetByName('Works');
+  const wr = findWorkRow(ws, payload.workId);
+  if (!wr) return jsonResponse({ success: false, error: 'Work not found' });
+  ws.getRange(wr, 8).setValue('sold');
+  clearQueue(ss, payload.workId);
+  clearTimersForWork(ss, payload.workId);
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: getTimerState() });
+}
+
+function handleCloseAll(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ws = ss.getSheetByName('Works');
+  const data = ws.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) { if (data[i][7] !== 'sold') ws.getRange(i+1,8).setValue('sold'); }
+  const qs = ss.getSheetByName('Queue');
+  if (qs.getLastRow() > 1) qs.deleteRows(2, qs.getLastRow()-1);
+  const tsh = getOrCreateTimersSheet(ss);
+  if (tsh.getLastRow() > 1) tsh.deleteRows(2, tsh.getLastRow()-1);
+  setConfig('galleryMode', 'closed');
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: [] });
+}
+
+function handleSetStatus(payload) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const ws = ss.getSheetByName('Works');
+  const wr = findWorkRow(ws, payload.workId);
+  if (!wr) return jsonResponse({ success: false, error: 'Work not found' });
+  if (!['available','pending','sold'].includes(payload.newStatus)) return jsonResponse({ success: false, error: 'Invalid status' });
+  ws.getRange(wr, 8).setValue(payload.newStatus);
+  if (payload.newStatus === 'available') { clearQueue(ss, payload.workId); clearTimersForWork(ss, payload.workId); }
+  return jsonResponse({ success: true, works: getAdminWorks(), timers: getTimerState() });
+}
+
+// =====================================================================
+// REMOVE FIRST FROM QUEUE
+// =====================================================================
+function removeFirstFromQueue(ss, workId) {
+  const ws = ss.getSheetByName('Works');
+  const qs = ss.getSheetByName('Queue');
+  const data = qs.getDataRange().getValues();
+  let firstIdx = -1, removed = null;
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(workId)) {
+      firstIdx = i + 1;
+      removed = { name: String(data[i][1]||''), email: String(data[i][2]||''), phone: String(data[i][3]||''), paymentType: String(data[i][4]||'') };
+      break;
+    }
+  }
+  if (firstIdx > 0) qs.deleteRow(firstIdx);
+  const remaining = qs.getDataRange().getValues().filter(r => String(r[0]) === String(workId));
+  const wr = findWorkRow(ws, workId);
+  if (wr) ws.getRange(wr, 8).setValue(remaining.length > 0 ? 'pending' : 'available');
+  const wd = wr ? ws.getRange(wr, 1, 1, 11).getValues()[0] : [];
+  const wi = { id: String(wd[0]||''), title: String(wd[2]||''), artist: String(wd[1]||''), price: wd[6]||'' };
+  let newFirst = null;
+  if (remaining.length > 0) {
+    newFirst = { name: String(remaining[0][1]||''), email: String(remaining[0][2]||''), phone: String(remaining[0][3]||''), paymentType: String(remaining[0][4]||''), timestamp: String(remaining[0][5]||''), workTitle: wi.title, artist: wi.artist, price: wi.price, workId: wi.id };
+  }
+  return { removed: { ...removed, workTitle: wi.title, artist: wi.artist, price: wi.price }, newFirst };
+}
+
+// =====================================================================
+// SMS — Twilio (reads credentials from Script Properties:
+//   TWILIO_SID, TWILIO_TOKEN, TWILIO_FROM)
+// =====================================================================
+function sendSms(phone, message) {
+  if (!phone || !message) return;
+
+  const props = PropertiesService.getScriptProperties();
+  const sid   = props.getProperty('TWILIO_SID');
+  const token = props.getProperty('TWILIO_TOKEN');
+  const from  = props.getProperty('TWILIO_FROM');
+
+  if (!sid || !token || !from) {
+    console.log('[SMS] Twilio not configured, skipping. To: ' + phone);
+    return;
+  }
+
+  const to = normalisePhoneAu(phone);
+  if (!to) {
+    console.log('[SMS] Could not read a valid AU number, skipping: ' + phone);
+    return;
+  }
+
+  const url = 'https://api.twilio.com/2010-04-01/Accounts/' + encodeURIComponent(sid) + '/Messages.json';
+  const options = {
+    method: 'post',
+    headers: { Authorization: 'Basic ' + Utilities.base64Encode(sid + ':' + token) },
+    payload: { To: to, From: from, Body: message },
+    muteHttpExceptions: true
+  };
+
+  try {
+    const resp = UrlFetchApp.fetch(url, options);
+    const code = resp.getResponseCode();
+    if (code >= 200 && code < 300) {
+      console.log('[SMS] Sent to ' + to);
+    } else {
+      console.log('[SMS] Failed (' + code + ') to ' + to + ': ' + resp.getContentText());
+    }
+  } catch (err) {
+    console.log('[SMS] Error sending to ' + to + ': ' + err);
+  }
+}
+
+// Normalise an Australian phone number to E.164 (+61...). Returns null if it can't.
+function normalisePhoneAu(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  const hasPlus = s.charAt(0) === '+';
+  const digits = s.replace(/[^0-9]/g, '');
+  if (!digits) return null;
+
+  if (hasPlus)                      return '+' + digits;                 // already international
+  if (digits.indexOf('0061') === 0) return '+' + digits.substring(2);    // 0061... dialling prefix
+  if (digits.indexOf('61') === 0 && digits.length >= 10) return '+' + digits; // 61... no plus
+  if (digits.charAt(0) === '0')     return '+61' + digits.substring(1);  // 0412... domestic
+  if (digits.charAt(0) === '4' && digits.length === 9) return '+61' + digits; // missing leading 0
+  return null;
+}
+
+// One-off test. Put your own mobile in, run this, check your phone.
+function testSms() {
+  sendSms('0437070205', 'Test from the CC Fundraiser platform. If this lands, Twilio is wired up.');
+}
+
+// =====================================================================
+// TIMER HELPERS
+// =====================================================================
+function getOrCreateTimersSheet(ss) {
+  let s = ss.getSheetByName('Timers');
+  if (!s) { s = ss.insertSheet('Timers'); s.appendRow(['workId','queueTimestamp','warningShown','extended','paused','expiryOverride']); }
+  return s;
+}
+function addTimerRow(ts, workId, qts) { ts.appendRow([workId, qts,'false','false','false','']); }
+function findTimerRow(data, workId, qts) {
+  for (let i=1; i<data.length; i++) { if (String(data[i][0])===String(workId) && String(data[i][1])===String(qts)) return i; }
+  return -1;
+}
+function removeTimerRow(ts, workId, qts) {
+  const data = ts.getDataRange().getValues();
+  for (let i=data.length-1; i>=1; i--) { if (String(data[i][0])===String(workId) && String(data[i][1])===String(qts)) ts.deleteRow(i+1); }
+}
+function clearTimersForWork(ss, workId) {
+  const ts = getOrCreateTimersSheet(ss);
+  const data = ts.getDataRange().getValues();
+  for (let i=data.length-1; i>=1; i--) { if (String(data[i][0])===String(workId)) ts.deleteRow(i+1); }
+}
+function setTimerWarning(ts, workId, qts, data, idx) {
+  if (idx >= 0) ts.getRange(idx+1, 3).setValue('true');
+  else ts.appendRow([workId, qts,'true','false','false','']);
+}
+
+// =====================================================================
+// EMAILS
+// =====================================================================
+function workDetailBlock(wt, a, p) {
+  return `<div style="border:1px solid #e0e0e0;padding:20px;margin:20px 0;background:#f8f8f8">${a?`<p style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#999;margin:0 0 4px">${a}</p>`:''}<p style="font-size:18px;font-weight:700;margin:0 0 8px;color:#0a0a0a">${wt}</p>${p?`<p style="font-size:22px;font-weight:700;margin:0;color:#0a0a0a">$${Number(p).toLocaleString()}</p>`:''}</div>`;
+}
+function paymentBlock(name, wt, p) {
+  const pf = p ? '$'+Number(p).toLocaleString() : 'the full amount';
+  return `<h2 style="font-size:16px;font-weight:700;margin:24px 0 12px;color:#0a0a0a">Payment details</h2><p style="margin:0 0 16px;color:#444">Transfer ${pf} using the details below. Include your name and the work title as the reference.</p><div style="border:2px solid #0a0a0a;padding:20px;margin:0 0 16px"><table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td style="padding:6px 0;color:#999;width:40%">PayID (${PAYID_TYPE})</td><td style="padding:6px 0;font-weight:700;color:#0a0a0a">${PAYID}</td></tr><tr><td style="padding:6px 0;color:#999">Bank</td><td style="padding:6px 0;font-weight:700;color:#0a0a0a">${BANK_NAME}</td></tr><tr><td style="padding:6px 0;color:#999">Reference</td><td style="padding:6px 0;font-weight:700;color:#0a0a0a">${name} — ${wt}</td></tr><tr><td style="padding:6px 0;color:#999">Amount</td><td style="padding:6px 0;font-weight:700;color:#0a0a0a">${pf}</td></tr></table></div><p style="font-size:12px;color:#999;margin:0">Transfers via PayID typically arrive instantly.</p>`;
+}
+function emailWrapper(body) {
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#0a0a0a;padding:20px 0"><div style="border-bottom:2px solid #0a0a0a;padding-bottom:16px;margin-bottom:24px"><strong style="font-size:16px">Conners Conners</strong></div>${body}<div style="margin-top:32px;padding-top:16px;border-top:1px solid #e0e0e0;font-size:12px;color:#999"><p>Questions? Reply to this email.</p><p style="margin-top:4px">Conners Conners Gallery</p></div></div>`;
+}
+
+function sendPaymentDetailsEmail(payload) {
+  try {
+    const isT = payload.paymentType==='transfer', wt=payload.workTitle||'the work', a=payload.artist||'', p=payload.price;
+    const body = isT
+      ? `<h1 style="font-size:20px;font-weight:700;margin:0 0 8px">You've secured your spot!</h1><p style="color:#444;margin:0">Hi ${payload.name} — your commitment for the following work has been received.</p>${workDetailBlock(wt,a,p)}${paymentBlock(payload.name,wt,p)}<p style="font-size:12px;color:#999;margin-top:16px">Your spot will be automatically released if payment isn't received within 30 minutes. If you'd like to arrange payment for later, pop by the sales desk.</p>`
+      : `<h1 style="font-size:20px;font-weight:700;margin:0 0 8px">You've secured your spot!</h1><p style="color:#444;margin:0">Hi ${payload.name} — your commitment for the following work has been received.</p>${workDetailBlock(wt,a,p)}<p style="color:#444;margin:0 0 12px">Payment will be taken at the sales desk tonight. Please let a volunteer know you have a commitment when you arrive.</p><p style="color:#444;margin:0">Your spot will be automatically released after 30 minutes if we don't hear from you — come find us if you need to arrange something!</p>`;
+    GmailApp.sendEmail(payload.email, `You've secured your spot — ${wt}`, '', { htmlBody: emailWrapper(body), name: SENDER_NAME, replyTo: REPLY_TO, from: SENDER_EMAIL });
+  } catch(e) { console.error('sendPaymentDetailsEmail:', e); }
+}
+
+function sendDigitalOrderEmail(payload) {
+  try {
+    const isT = payload.paymentType==='transfer', wt=payload.workTitle||'the download', a=payload.artist||'', p=payload.price;
+    const artist = a || 'the artist';
+    const intro = `<h1 style="font-size:20px;font-weight:700;margin:0 0 8px">Order received!</h1><p style="color:#444;margin:0">Hi ${payload.name}, thanks for ordering the following digital download.</p>${workDetailBlock(wt,a,p)}`;
+    let body;
+    if (isT) {
+      const proof = `<p style="color:#444;margin:16px 0 0">Please complete your transfer within <strong>${PAYMENT_WINDOW} hours</strong>, then send proof of payment to <strong>${DIGITAL_PROOF_EMAIL}</strong>. Once your payment is confirmed, ${artist} will email your download to <strong>${payload.email}</strong>.</p>`;
+      body = `${intro}${paymentBlock(payload.name,wt,p)}${proof}`;
+    } else {
+      const desk = `<p style="color:#444;margin:0 0 12px">Payment will be taken at the sales desk. Please let a volunteer know you have a digital order when you arrive.</p><p style="color:#444;margin:0">Once your payment is received, ${artist} will email your download to <strong>${payload.email}</strong>.</p>`;
+      body = `${intro}${desk}`;
+    }
+    GmailApp.sendEmail(payload.email, `Order received: ${wt}`, '', { htmlBody: emailWrapper(body), name: SENDER_NAME, replyTo: REPLY_TO, from: SENDER_EMAIL });
+  } catch(e) { console.error('sendDigitalOrderEmail:', e); }
+}
+
+function sendWaitlistConfirmationEmail(payload, position) {
+  try {
+    const wt=payload.workTitle||'the work', a=payload.artist||'', p=payload.price;
+    const body = `<h1 style="font-size:20px;font-weight:700;margin:0 0 8px">You're on the waitlist.</h1><p style="color:#444;margin:0">Hi ${payload.name}, you are #${position} in the queue for the following work.</p>${workDetailBlock(wt,a,p)}<p style="color:#444;margin:0">If the current commitment doesn't proceed, we'll be in touch to let you know your position has moved up.</p>`;
+    GmailApp.sendEmail(payload.email, `Waitlist confirmed — ${wt}`, '', { htmlBody: emailWrapper(body), name: SENDER_NAME, replyTo: REPLY_TO, from: SENDER_EMAIL });
+  } catch(e) { console.error('sendWaitlistConfirmationEmail:', e); }
+}
+
+function sendPromotedEmail(buyer, workId, reason) {
+  try {
+    const wt=buyer.workTitle||'the work', a=buyer.artist||'', p=buyer.price, isT=buyer.paymentType==='transfer';
+    const body = isT
+      ? `<h1 style="font-size:20px;font-weight:700;margin:0 0 8px">You're first in the queue.</h1><p style="color:#444;margin:0">Hi ${buyer.name}, your position in the queue for this work has moved to first.</p>${workDetailBlock(wt,a,p)}${paymentBlock(buyer.name,wt,p)}`
+      : `<h1 style="font-size:20px;font-weight:700;margin:0 0 8px">You're first in the queue.</h1><p style="color:#444;margin:0">Hi ${buyer.name}, your position in the queue for this work has moved to first.</p>${workDetailBlock(wt,a,p)}<p style="color:#444;margin:0">Please see a volunteer at the sales desk to finalise your purchase.</p>`;
+    GmailApp.sendEmail(buyer.email, `You're first in the queue — ${wt}`, '', { htmlBody: emailWrapper(body), name: SENDER_NAME, replyTo: REPLY_TO, from: SENDER_EMAIL });
+  } catch(e) { console.error('sendPromotedEmail:', e); }
+}
+
+function sendWithdrawalConfirmationEmail(buyer, workId) {
+  try {
+    const wt = buyer.workTitle||'the work';
+    const body = `<h1 style="font-size:20px;font-weight:700;margin:0 0 8px">Commitment withdrawn.</h1><p style="color:#444;margin:0 0 16px">Hi ${buyer.name}, your commitment to purchase <strong>${wt}</strong> has been withdrawn as requested.</p><p style="color:#444;margin:0">If this was in error, please speak to a volunteer or reply to this email immediately.</p>`;
+    GmailApp.sendEmail(buyer.email, `Commitment withdrawn — ${wt}`, '', { htmlBody: emailWrapper(body), name: SENDER_NAME, replyTo: REPLY_TO, from: SENDER_EMAIL });
+  } catch(e) { console.error('sendWithdrawalConfirmationEmail:', e); }
+}
+
+// VIP token resend email (new, step 2)
+function sendVipTokenEmail(vip, token) {
+  const url = GALLERY_URL + '?token=' + encodeURIComponent(token);
+  const body = `<h1 style="font-size:20px;font-weight:700;margin:0 0 8px">Your VIP link for Conners Conners</h1>
+    <p style="color:#444;margin:0 0 16px">Hi ${vip.name||'there'}, here's your personal link to the Conners Conners Fundraiser 2026 catalogue.</p>
+    <div style="margin:24px 0;padding:20px;border:1px solid #e0e0e0;background:#f8f8f8;text-align:center">
+      <a href="${url}" style="font-size:14px;color:#0a0a0a;font-weight:700;word-break:break-all">${url}</a>
+    </div>
+    <p style="color:#444;margin:0 0 12px">Keep this link to yourself. It's tied to you and gives you VIP access to the fundraiser.</p>
+    <p style="color:#444;margin:0">Any questions, reply to this email.</p>`;
+  GmailApp.sendEmail(vip.email,
+    `Your VIP link, Conners Conners Fundraiser 2026`,
+    '',
+    { htmlBody: emailWrapper(body), name: SENDER_NAME, replyTo: REPLY_TO, from: SENDER_EMAIL });
+}
+
+// =====================================================================
+// READ WORKS
+// =====================================================================
+function getPublicWorks(tokenValid, isPreview) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const data = ss.getSheetByName('Works').getDataRange().getValues();
+  const mode = getGalleryMode();
+  // Phase-aware filtering (step 5):
+  // - browse_only: prices stripped, statuses forced to 'available' for everyone
+  // - vip_window: VIPs see full payload; public callers see browse_only-style payload
+  // - live, closed: full payload for everyone
+  // An admin preview link (isPreview) always sees real prices and statuses.
+  // Digital works always return their real price and 'digital' status in every
+  // mode, so they stay buyable at all times.
+  const hideForPublic = !isPreview && ((mode === 'browse_only') || (mode === 'vip_window' && !tokenValid));
+  return data.slice(1).filter(r => r[0]).map(r => {
+    const realStatus = String(r[7]||'available');
+    const isDigital = realStatus === 'digital';
+    const hide = hideForPublic && !isDigital;
+    return {
+      id: String(r[0]||''), artist: String(r[1]||''), title: String(r[2]||''),
+      medium: String(r[3]||''), dimensions: String(r[4]||''), year: String(r[5]||''),
+      price: hide ? '' : (r[6]||''),
+      status: hide ? 'available' : realStatus,
+      imageUrl: String(r[8]||''), squareLink: String(r[9]||''), representedBy: String(r[10]||''),
+    };
+  });
+}
+
+function getAdminWorks() {
+  const works = getPublicWorks(true);
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const qd = ss.getSheetByName('Queue').getDataRange().getValues();
+  return works.map(w => ({
+    ...w,
+    queue: qd.slice(1).filter(r => String(r[0])===String(w.id))
+      .map(r => ({ name: String(r[1]||''), email: String(r[2]||''), phone: String(r[3]||''), paymentType: String(r[4]||''), timestamp: String(r[5]||'') }))
+  }));
+}
+
+// =====================================================================
+// HELPERS
+// =====================================================================
+function findWorkRow(sheet, workId) {
+  const data = sheet.getDataRange().getValues();
+  for (let i=1; i<data.length; i++) { if (String(data[i][0])===String(workId)) return i+1; }
+  return null;
+}
+
+function clearQueue(ss, workId) {
+  const qs = ss.getSheetByName('Queue');
+  const data = qs.getDataRange().getValues();
+  for (let i=data.length-1; i>=1; i--) { if (String(data[i][0])===String(workId)) qs.deleteRow(i+1); }
+}
+
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function authorise() {}
