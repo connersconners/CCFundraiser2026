@@ -497,6 +497,13 @@ function showForm(type) {
       : 'I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.';
   }
   document.getElementById('submit-btn').textContent = isDigital ? 'Submit order' : 'Submit commitment';
+  // VIP autofill: fill any empty contact field from the token's details.
+  if (vipInfo) {
+    const fill = (id, val) => { const el = document.getElementById(id); if (el && !el.value && val) el.value = val; };
+    fill('f-name', vipInfo.name);
+    fill('f-email', vipInfo.email);
+    fill('f-phone', vipInfo.phone);
+  }
 }
 
 async function submitCommit(e) {
