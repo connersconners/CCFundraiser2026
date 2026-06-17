@@ -221,7 +221,7 @@
         </div>
         <div class="checkbox-group" id="transfer-checkbox-group" style="display:none">
           <input type="checkbox" id="f-commit-check">
-          <label for="f-commit-check" id="commit-label">I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.</label>
+          <label for="f-commit-check" id="commit-label">I will confirm this purchase at the desk or by email within 15 minutes.</label>
         </div>
         <button type="submit" class="btn btn-primary" id="submit-btn">Submit commitment</button>
         <button type="button" class="form-back" onclick="showPurchaseOptions()">← Back</button>
@@ -535,7 +535,7 @@ function showForm(type) {
   if (type==='transfer') {
     document.getElementById('commit-label').textContent = isDigital
       ? 'I will transfer payment within 48 hours and send proof of payment so my download can be sent.'
-      : 'I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.';
+      : 'I will confirm this purchase at the desk or by email within 15 minutes.';
   }
   document.getElementById('submit-btn').textContent = isDigital ? 'Submit order' : 'Submit commitment';
   // VIP autofill: populate contact fields from the token, authoritatively, so it
