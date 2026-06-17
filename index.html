@@ -36,6 +36,9 @@
   .buying-info { padding: 20px 24px; border-bottom: 1px solid var(--border); max-width: 600px; }
   .buying-info p { font-size: 13px; line-height: 1.6; color: #444; }
   .buying-info p + p { margin-top: 8px; }
+  .buying-info-lead { font-weight: 700; color: var(--black); }
+  .buying-info-list { list-style: disc; padding-left: 20px; margin: 4px 0 8px; }
+  .buying-info-list li { font-size: 13px; line-height: 1.6; color: #444; }
 
   .filter-bar { padding: 12px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
   .filter-pills { display: flex; }
@@ -155,9 +158,13 @@
 </section>
 
 <section class="buying-info">
-  <p>Pay at the desk, or by bank transfer.</p>
-  <p>Confirm your purchase with a gallery representative within 30 minutes, or the work is released to the next buyer.</p>
-  <p>Once confirmed in person, bank transfers can be completed within 48 hours.</p>
+  <p>Click any work to commit to purchase. You will be sent payment information.</p>
+  <p class="buying-info-lead">Confirm within 15 minutes:</p>
+  <ul class="buying-info-list">
+    <li>Pay at desk</li>
+    <li>Email a screenshot of bank transfer</li>
+  </ul>
+  <p>Speak to someone at the desk if you need help.</p>
 </section>
 
 <div class="filter-bar">
@@ -220,7 +227,7 @@
         <div class="form-divider"></div>
         <div class="checkbox-group" id="transfer-checkbox-group" style="display:none">
           <input type="checkbox" id="f-commit-check">
-          <label for="f-commit-check" id="commit-label">I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.</label>
+          <label for="f-commit-check" id="commit-label">I will confirm this purchase at the desk or by email within 15 minutes.</label>
         </div>
         <button type="submit" class="btn btn-primary" id="submit-btn">Submit commitment</button>
         <button type="button" class="form-back" onclick="showPurchaseOptions()">← Back</button>
@@ -610,7 +617,7 @@ function showForm(type) {
   if (type==='transfer') {
     document.getElementById('commit-label').textContent = isDigital
       ? 'I will transfer payment within 48 hours and send proof of payment so my download can be sent.'
-      : 'I commit to transferring payment within 48 hours of receiving bank details from Conners Conners.';
+      : 'I will confirm this purchase at the desk or by email within 15 minutes.';
   }
   document.getElementById('submit-btn').textContent = isDigital ? 'Submit order' : 'Submit commitment';
   // VIP autofill: populate contact fields from the token, authoritatively, so it
