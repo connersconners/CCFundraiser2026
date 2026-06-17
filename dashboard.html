@@ -226,6 +226,20 @@
   .vip-toggle input { cursor: pointer; }
   .vip-action-feedback { font-size: 10px; color: var(--available); white-space: nowrap; opacity: 0; transition: opacity 0.2s; min-width: 50px; }
   .vip-action-feedback.show { opacity: 1; }
+
+  /* DIGITAL ORDERS */
+  #panel-digital-orders { margin: 0 24px 12px; }
+  .digital-row { display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .digital-row:last-child { border-bottom: none; }
+  .digital-row.confirmed { opacity: 0.55; }
+  .digital-row-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .digital-row-artist { font-size: 11px; color: var(--mid-gray); margin-bottom: 5px; }
+  .digital-row-buyer { font-size: 12px; font-weight: 700; }
+  .digital-row-contact { font-size: 11px; color: var(--mid-gray); word-break: break-word; margin-top: 1px; }
+  .digital-row-meta { font-size: 11px; color: var(--mid-gray); margin-top: 4px; }
+  .digital-confirmed-label { font-size: 10px; font-weight: 700; color: var(--available); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .digital-btn { font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 6px 12px; border: 1px solid var(--available); background: var(--white); color: var(--available); cursor: pointer; white-space: nowrap; }
+  .digital-btn:hover { background: var(--available-bg); }
   .vip-action-feedback.error { color: var(--danger); }
 
   /* PHASE BANNER (step 8) */
@@ -252,6 +266,7 @@
     .stats-bar { padding: 0 16px; }
     .controls { padding: 12px 16px; }
     .work-list { padding: 12px 16px; }
+    #panel-digital-orders { margin: 0 16px 12px; }
     .work-row-header { grid-template-columns: 1fr auto; }
     .work-row-price { display: none; }
   }
@@ -365,6 +380,17 @@
 
   </div>
 
+  <!-- Digital orders (volunteer + admin; hidden when there are none) -->
+  <div class="admin-panel" id="panel-digital-orders" style="display:none">
+    <div class="admin-panel-header" onclick="toggleAdminPanel('panel-digital-orders')">
+      <h3>Digital orders</h3>
+      <span id="digital-orders-count" style="font-size:11px;color:var(--mid-gray)">—</span>
+    </div>
+    <div class="admin-panel-body">
+      <div id="digital-orders-rows"></div>
+    </div>
+  </div>
+
   <div class="work-list" id="work-list">
     <p style="font-size:12px;color:var(--mid-gray);padding:20px 0">Loading works…</p>
   </div>
@@ -461,6 +487,7 @@ async function loadWorks() {
       galleryMode = data.mode || 'browse_only';
       renderList(); updateStats(); renderTimerWarnings(); updateModeDisplay();
       if (isAdmin) { loadVipList(); }
+      loadDigitalOrders();
       document.getElementById('last-updated').textContent =
         'Updated ' + new Date().toLocaleTimeString('en-AU', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
     }
@@ -681,9 +708,11 @@ async function executePending() {
   }
 
   const adminOverride = pendingAction.requiresAdmin ? ADMIN_PASSWORD : null;
+  const wasDigital = pendingAction.action === 'confirmDigitalPayment';
   closeConfirm();
   await sendAction(pendingAction, adminOverride);
   pendingAction = null;
+  if (wasDigital) loadDigitalOrders();
 }
 
 function closeConfirm() {
@@ -877,6 +906,73 @@ async function cancelTransition(target) {
 
 function toggleAdminPanel(id) {
   document.getElementById(id)?.classList.toggle('open');
+}
+
+// ---- DIGITAL ORDERS ----
+let allDigitalOrders = [];
+
+async function loadDigitalOrders() {
+  try {
+    const pwd = isAdmin ? ADMIN_PASSWORD : VOLUNTEER_PASSWORD;
+    const res = await fetch(SHEET_API_URL + '?action=adminGetDigitalOrders&pwd=' + encodeURIComponent(pwd));
+    const data = await res.json();
+    if (data.orders) { allDigitalOrders = data.orders; renderDigitalOrders(); }
+  } catch(e) { console.error('Digital orders load failed', e); }
+}
+
+function renderDigitalOrders() {
+  const panel = document.getElementById('panel-digital-orders');
+  const countEl = document.getElementById('digital-orders-count');
+  const body = document.getElementById('digital-orders-rows');
+  if (!panel || !body) return;
+
+  if (!allDigitalOrders.length) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  const pending = allDigitalOrders.filter(o => !o.paymentReceived).length;
+  if (pending > 0) {
+    countEl.textContent = pending + ' awaiting confirmation';
+    countEl.style.color = 'var(--danger)';
+    countEl.style.fontWeight = '700';
+  } else {
+    countEl.textContent = 'All confirmed';
+    countEl.style.color = 'var(--mid-gray)';
+    countEl.style.fontWeight = '400';
+  }
+
+  // Unconfirmed first
+  const sorted = allDigitalOrders.slice().sort((a,b) => (a.paymentReceived?1:0) - (b.paymentReceived?1:0));
+  body.innerHTML = sorted.map(o => {
+    const price = (o.price === '' || o.price == null) ? '' :
+      (String(o.price).includes('$') ? String(o.price) : '$' + o.price);
+    const meta = [o.paymentType, price].filter(Boolean).join(' · ');
+    const contact = [o.email, o.phone].filter(Boolean).map(esc).join(' · ');
+    return `
+      <div class="digital-row ${o.paymentReceived ? 'confirmed' : ''}">
+        <div>
+          <div class="digital-row-title">${esc(o.workTitle || o.workId)}</div>
+          ${o.artist ? `<div class="digital-row-artist">${esc(o.artist)}</div>` : ''}
+          <div class="digital-row-buyer">${esc(o.name)}</div>
+          <div class="digital-row-contact">${contact}</div>
+          ${meta ? `<div class="digital-row-meta">${esc(meta)}</div>` : ''}
+        </div>
+        <div>
+          ${o.paymentReceived
+            ? `<span class="digital-confirmed-label">Confirmed${o.confirmedAt ? ' ' + fmt(o.confirmedAt) : ''}</span>`
+            : `<button class="digital-btn" onclick="confirmDigitalReceived(${o.row}, '${escA(o.name)}', '${escA(o.workTitle || o.workId)}')">Payment received</button>`}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function confirmDigitalReceived(row, name, workTitle) {
+  pendingAction = { action: 'confirmDigitalPayment', row: row, requiresAdmin: false };
+  document.getElementById('confirm-title').textContent = 'Confirm payment received?';
+  document.getElementById('confirm-body').textContent =
+    'This marks ' + workTitle + ' as paid and texts ' + name + ' to confirm. Only do this once the transfer has landed.';
+  document.getElementById('confirm-input-wrap').style.display = 'none';
+  document.getElementById('admin-pwd-error').style.display = 'none';
+  document.getElementById('confirm-overlay').classList.add('open');
 }
 
 // ---- VIP LIST (step 7) ----
