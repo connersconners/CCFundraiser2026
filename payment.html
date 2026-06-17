@@ -62,18 +62,15 @@
 <section class="intro">
   <p class="intro-eyebrow">Conners Conners Gallery — Fundraiser 2026</p>
   <h1>Payment</h1>
-  <p>Pay for your work by bank transfer using the details below. Transfer the price of your work, and include the reference shown so we can match your payment.</p>
 </section>
 
 <section class="pay">
   <div class="pay-card" id="payid-card"></div>
-  <div class="pay-or">or</div>
-  <div class="pay-card" id="bsb-card"></div>
 </section>
 
 <section class="ref-card">
   <div class="pay-card">
-    <div class="pay-row"><span class="pay-label">Reference</span><span class="pay-value">Your name and the work title</span></div>
+    <div class="pay-row"><span class="pay-label">Reference</span><span class="pay-value">Your name and the work number</span></div>
   </div>
 </section>
 
@@ -84,18 +81,14 @@
 
 <script>
   // ============================================================
-  // PAYMENT DETAILS — fill these in before go-live.
-  // Set a value to '' to show a "To be confirmed" placeholder.
-  // PayID, PayID type and bank are pre-filled from the backend.
-  // Still needed: account name, BSB, account number.
+  // PAYMENT DETAILS — PayID, PayID type and bank are pre-filled
+  // from the backend. Set a value to '' to show a "To be confirmed"
+  // placeholder.
   // ============================================================
   const PAYMENT = {
     payId:         '37128241411',   // PayID value
     payIdType:     'ABN',           // email / phone / ABN
     bankName:      'Westpac',
-    accountName:   '',              // <-- name on the bank account
-    bsb:           '',              // <-- e.g. 033-000
-    accountNumber: '',              // <-- account number
   };
 
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
@@ -106,14 +99,6 @@
     '<div class="pay-card-title">Pay by PayID</div>' +
     row('PayID', PAYMENT.payId) +
     row('PayID type', PAYMENT.payIdType) +
-    row('Account name', PAYMENT.accountName) +
-    row('Bank', PAYMENT.bankName);
-
-  document.getElementById('bsb-card').innerHTML =
-    '<div class="pay-card-title">Pay by BSB and account number</div>' +
-    row('Account name', PAYMENT.accountName) +
-    row('BSB', PAYMENT.bsb) +
-    row('Account number', PAYMENT.accountNumber) +
     row('Bank', PAYMENT.bankName);
 
   document.getElementById('footer-year').textContent = new Date().getFullYear();
