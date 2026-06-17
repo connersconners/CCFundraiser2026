@@ -85,13 +85,12 @@
 
 <script>
   // ============================================================
-  // PAYMENT DETAILS — PayID, PayID type and bank are pre-filled
-  // from the backend. Set a value to '' to show a "To be confirmed"
+  // PAYMENT DETAILS — PayID and bank are pre-filled from the
+  // backend. Set a value to '' to show a "To be confirmed"
   // placeholder.
   // ============================================================
   const PAYMENT = {
-    payId:         '37128241411',   // PayID value
-    payIdType:     'ABN',           // email / phone / ABN
+    payId:         '37128241411',   // PayID value (ABN)
     bankName:      'Westpac',
   };
 
@@ -104,9 +103,7 @@
   }
 
   document.getElementById('payid-card').innerHTML =
-    '<div class="pay-card-title">Pay by PayID</div>' +
-    row('PayID', PAYMENT.payId) +
-    row('PayID type', PAYMENT.payIdType) +
+    row('PayID ABN', PAYMENT.payId) +
     row('Bank', PAYMENT.bankName);
 
   document.getElementById('footer-year').textContent = new Date().getFullYear();
