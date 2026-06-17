@@ -51,6 +51,7 @@
   .work-image-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .work-image-placeholder { font-size: 11px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
   .work-info { padding: 12px 16px 16px; }
+  .work-number { font-size: 11px; color: var(--mid-gray); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; margin-bottom: 5px; }
   .work-artist { font-size: 13px; font-weight: 700; margin-bottom: 1px; }
   .work-title { font-size: 13px; color: #444; margin-bottom: 2px; }
   .work-represented { font-size: 11px; color: var(--mid-gray); margin-bottom: 8px; }
@@ -487,6 +488,9 @@ async function pollStatus() {
 }
 
 function worknum(w) { const m = String(w.id || '').match(/\d+/); return m ? parseInt(m[0], 10) : Infinity; }
+// Catalogue label: show the id as-is when it carries a number (e.g. 65, 65a),
+// nothing for numberless slug ids (e.g. andrew-hurle).
+function workLabel(w) { const id = String(w.id || ''); return /\d/.test(id) ? id : ''; }
 
 function renderGrid() {
   const grid = document.getElementById('gallery-grid');
@@ -504,6 +508,7 @@ function renderGrid() {
         ${w.imageUrl ? `<img src="${esc(w.imageUrl)}" alt="${esc(w.title||'')}" loading="lazy">` : '<span class="work-image-placeholder">No image</span>'}
       </div>
       <div class="work-info">
+        ${workLabel(w) ? `<div class="work-number">${esc(workLabel(w))}</div>` : ''}
         <div class="work-artist">${esc(w.artist||'Unknown artist')}</div>
         <div class="work-title">${esc(w.title||'Untitled')}</div>
         ${w.representedBy ? `<div class="work-represented">Rep. ${esc(w.representedBy)}</div>` : ''}
