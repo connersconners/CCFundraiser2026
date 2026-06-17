@@ -50,6 +50,16 @@
     gap: 16px;
     padding: 24px;
   }
+
+  /* LETTER GROUPS (surname index) */
+  .letter-group { border-top: 1px solid var(--border); }
+  .letter-group:first-of-type { border-top: none; }
+  .letter-header { font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; color: var(--black); padding: 32px 24px 0; }
+  .letter-group .works-grid { padding: 16px 24px 28px; }
+  @media (max-width: 600px) {
+    .letter-header { font-size: 40px; padding: 24px 16px 0; }
+    .letter-group .works-grid { padding: 12px 16px 24px; }
+  }
   .work-tile {
     background: var(--white);
     border: 1px solid var(--border);
@@ -355,6 +365,15 @@ function workTile(w) {
     </div>`;
 }
 
+// Surname initial for grouping: strips accents, falls back to '#' when there is
+// no usable surname (so it sorts to the end rather than under a wrong letter).
+function groupLetter(w) {
+  if (!w.artist || !String(w.artist).trim()) return '#';
+  const ln = lastName(w.artist).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const c = (ln.charAt(0) || '').toUpperCase();
+  return /[A-Z]/.test(c) ? c : '#';
+}
+
 function renderWorks() {
   const container = document.getElementById('artist-list');
   const works = allWorks.slice().sort(surnameCmp);
@@ -362,7 +381,27 @@ function renderWorks() {
     container.innerHTML = '<div class="page-message">No works found.</div>';
     return;
   }
-  container.innerHTML = '<div class="works-grid">' + works.map(workTile).join('') + '</div>';
+  // Group by surname initial. works is already sorted by surname then title,
+  // so iterating in order preserves the sort within each group.
+  const groups = [];
+  const seen = {};
+  works.forEach(w => {
+    const L = groupLetter(w);
+    if (!(L in seen)) { seen[L] = groups.length; groups.push({ letter: L, items: [] }); }
+    groups[seen[L]].items.push(w);
+  });
+  // A–Z, with '#' (no surname) last.
+  groups.sort((a, b) => {
+    if (a.letter === '#') return 1;
+    if (b.letter === '#') return -1;
+    return a.letter.localeCompare(b.letter);
+  });
+  container.innerHTML = groups.map(g =>
+    `<section class="letter-group">
+      <h2 class="letter-header">${g.letter}</h2>
+      <div class="works-grid">${g.items.map(workTile).join('')}</div>
+    </section>`
+  ).join('');
 }
 
 // Phase-aware UI (step 5)
