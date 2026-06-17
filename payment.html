@@ -35,10 +35,14 @@
   .pay { padding: 28px 24px 0; max-width: 600px; }
   .pay-card { border: 2px solid var(--black); padding: 4px 22px 12px; margin-bottom: 18px; }
   .pay-card-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); padding: 14px 0 4px; }
-  .pay-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .pay-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--border); }
   .pay-row:last-child { border-bottom: none; }
   .pay-label { font-size: 13px; color: var(--mid-gray); white-space: nowrap; }
+  .pay-value-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0; }
   .pay-value { font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; word-break: break-word; }
+  .copy-btn { flex-shrink: 0; font-family: var(--font); font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 11px; border: 1px solid var(--black); background: var(--white); color: var(--black); cursor: pointer; transition: all 0.1s; }
+  .copy-btn:hover { background: var(--black); color: var(--white); }
+  .copy-btn.copied { background: var(--black); color: var(--white); border-color: var(--black); }
   .placeholder { font-weight: 400; color: var(--mid-gray); border: 1px dashed var(--mid-gray); border-radius: 2px; padding: 1px 8px; font-size: 12px; letter-spacing: 0.02em; white-space: nowrap; }
 
   .pay-or { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid-gray); text-align: center; margin: 2px 0 18px; }
@@ -93,7 +97,11 @@
 
   function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
   function val(v) { return (v && String(v).trim()) ? esc(v) : '<span class="placeholder">To be confirmed</span>'; }
-  function row(label, v) { return `<div class="pay-row"><span class="pay-label">${label}</span><span class="pay-value">${val(v)}</span></div>`; }
+  function row(label, v) {
+    const filled = v && String(v).trim();
+    const copyBtn = filled ? `<button type="button" class="copy-btn" data-copy="${esc(v)}" aria-label="Copy ${esc(label)}">Copy</button>` : '';
+    return `<div class="pay-row"><span class="pay-label">${esc(label)}</span><span class="pay-value-wrap"><span class="pay-value">${val(v)}</span>${copyBtn}</span></div>`;
+  }
 
   document.getElementById('payid-card').innerHTML =
     '<div class="pay-card-title">Pay by PayID</div>' +
@@ -102,6 +110,35 @@
     row('Bank', PAYMENT.bankName);
 
   document.getElementById('footer-year').textContent = new Date().getFullYear();
+
+  // Copy-to-clipboard for each payment field
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.copy-btn');
+    if (!btn) return;
+    copyText(btn.dataset.copy || '').then(ok => {
+      if (!ok) return;
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+    });
+  });
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(() => true).catch(() => fallbackCopy(text));
+    }
+    return Promise.resolve(fallbackCopy(text));
+  }
+  function fallbackCopy(text) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-9999px';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
+  }
 </script>
 
 </body>
