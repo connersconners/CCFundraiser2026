@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conners Conners — Payment</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --black: #0a0a0a;
+    --white: #ffffff;
+    --off-white: #f8f8f8;
+    --light-gray: #eeeeee;
+    --mid-gray: #999999;
+    --border: #e0e0e0;
+    --pending: #b07d3a;
+    --sold: #999999;
+    --font: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--font); background: var(--white); color: var(--black); min-height: 100vh; font-size: 14px; }
+
+  header { padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 48px; position: sticky; top: 0; background: var(--white); z-index: 100; border-bottom: 1px solid var(--border); }
+  .logo { font-size: 14px; font-weight: 700; color: var(--black); text-decoration: none; }
+  nav { display: flex; }
+  nav a { font-size: 13px; color: var(--mid-gray); text-decoration: none; padding: 0 14px; height: 48px; display: flex; align-items: center; border-left: 1px solid var(--border); transition: color 0.1s; }
+  nav a:hover { color: var(--black); }
+  nav a.active { color: var(--black); font-weight: 700; }
+
+  .intro { padding: 40px 24px 28px; border-bottom: 1px solid var(--border); max-width: 600px; }
+  .intro-eyebrow { font-size: 12px; color: var(--mid-gray); margin-bottom: 8px; }
+  .intro h1 { font-size: clamp(34px, 7vw, 52px); font-weight: 700; line-height: 1.1; }
+  .intro p { font-size: 13px; line-height: 1.6; color: #444; margin-top: 12px; }
+
+  .pay { padding: 28px 24px 0; max-width: 600px; }
+  .pay-card { border: 2px solid var(--black); padding: 4px 22px 12px; margin-bottom: 18px; }
+  .pay-card-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); padding: 14px 0 4px; }
+  .pay-row { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .pay-row:last-child { border-bottom: none; }
+  .pay-label { font-size: 13px; color: var(--mid-gray); white-space: nowrap; }
+  .pay-value { font-size: 15px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; word-break: break-word; }
+  .placeholder { font-weight: 400; color: var(--mid-gray); border: 1px dashed var(--mid-gray); border-radius: 2px; padding: 1px 8px; font-size: 12px; letter-spacing: 0.02em; white-space: nowrap; }
+
+  .pay-or { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid-gray); text-align: center; margin: 2px 0 18px; }
+
+  .ref-card { max-width: 600px; padding: 0 24px; }
+  .ref-card .pay-card { border-width: 1px; background: var(--off-white); margin-bottom: 0; }
+
+  footer { border-top: 1px solid var(--border); padding: 24px; font-size: 12px; color: var(--mid-gray); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 32px; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html" class="logo">Conners Conners</a>
+  <nav>
+    <a href="index.html">Works</a>
+    <a href="artists.html">Artists</a>
+  </nav>
+</header>
+
+<section class="intro">
+  <p class="intro-eyebrow">Conners Conners Gallery — Fundraiser 2026</p>
+  <h1>Payment</h1>
+  <p>Pay for your work by bank transfer using the details below. Transfer the price of your work, and include the reference shown so we can match your payment.</p>
+</section>
+
+<section class="pay">
+  <div class="pay-card" id="payid-card"></div>
+  <div class="pay-or">or</div>
+  <div class="pay-card" id="bsb-card"></div>
+</section>
+
+<section class="ref-card">
+  <div class="pay-card">
+    <div class="pay-row"><span class="pay-label">Reference</span><span class="pay-value">Your name and the work title</span></div>
+  </div>
+</section>
+
+<footer>
+  <span>Conners Conners Gallery</span>
+  <span id="footer-year"></span>
+</footer>
+
+<script>
+  // ============================================================
+  // PAYMENT DETAILS — fill these in before go-live.
+  // Set a value to '' to show a "To be confirmed" placeholder.
+  // PayID, PayID type and bank are pre-filled from the backend.
+  // Still needed: account name, BSB, account number.
+  // ============================================================
+  const PAYMENT = {
+    payId:         '37128241411',   // PayID value
+    payIdType:     'ABN',           // email / phone / ABN
+    bankName:      'Westpac',
+    accountName:   '',              // <-- name on the bank account
+    bsb:           '',              // <-- e.g. 033-000
+    accountNumber: '',              // <-- account number
+  };
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+  function val(v) { return (v && String(v).trim()) ? esc(v) : '<span class="placeholder">To be confirmed</span>'; }
+  function row(label, v) { return `<div class="pay-row"><span class="pay-label">${label}</span><span class="pay-value">${val(v)}</span></div>`; }
+
+  document.getElementById('payid-card').innerHTML =
+    '<div class="pay-card-title">Pay by PayID</div>' +
+    row('PayID', PAYMENT.payId) +
+    row('PayID type', PAYMENT.payIdType) +
+    row('Account name', PAYMENT.accountName) +
+    row('Bank', PAYMENT.bankName);
+
+  document.getElementById('bsb-card').innerHTML =
+    '<div class="pay-card-title">Pay by BSB and account number</div>' +
+    row('Account name', PAYMENT.accountName) +
+    row('BSB', PAYMENT.bsb) +
+    row('Account number', PAYMENT.accountNumber) +
+    row('Bank', PAYMENT.bankName);
+
+  document.getElementById('footer-year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
