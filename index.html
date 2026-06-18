@@ -206,8 +206,8 @@
       <div class="purchase-section" id="purchase-section">
         <h3>Purchase this work</h3>
         <div class="purchase-options">
-          <button class="btn btn-primary" id="btn-transfer" onclick="showForm('transfer')">Commit — bank transfer</button>
-          <button class="btn btn-outline" id="btn-desk" onclick="showForm('desk')">Commit — pay at desk</button>
+          <button class="btn btn-primary" id="btn-transfer" onclick="showForm('transfer')">Commit to purchase (bank transfer)</button>
+          <button class="btn btn-outline" id="btn-desk" onclick="showForm('desk')">Commit to purchase (pay at desk)</button>
         </div>
       </div>
 
@@ -597,8 +597,8 @@ function showPurchaseOptions() {
     return;
   }
   const pend = s === 'pending';
-  document.getElementById('btn-transfer').textContent = pend ? 'Join waitlist — bank transfer' : 'Commit — bank transfer';
-  document.getElementById('btn-desk').textContent = pend ? 'Join waitlist — pay at desk' : 'Commit — pay at desk';
+  document.getElementById('btn-transfer').textContent = pend ? 'Join waitlist — bank transfer' : 'Commit to purchase (bank transfer)';
+  document.getElementById('btn-desk').textContent = pend ? 'Join waitlist — pay at desk' : 'Commit to purchase (pay at desk)';
 }
 
 function showForm(type) {
@@ -611,7 +611,7 @@ function showForm(type) {
     ? (type==='transfer' ? 'Buy by bank transfer' : 'Buy at the desk')
     : pend
       ? (type==='transfer' ? 'Join waitlist — bank transfer' : 'Join waitlist — pay at desk')
-      : (type==='transfer' ? 'Commit — bank transfer' : 'Commit — pay at desk');
+      : (type==='transfer' ? 'Commit to purchase (bank transfer)' : 'Commit to purchase (pay at desk)');
   const cbg = document.getElementById('transfer-checkbox-group');
   cbg.style.display = type==='transfer' ? 'flex' : 'none';
   document.getElementById('f-commit-check').required = type==='transfer';
