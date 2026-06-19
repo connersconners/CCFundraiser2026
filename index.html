@@ -160,12 +160,7 @@
 <section class="buying-info">
   <p>Click any work to commit to purchase.</p>
   <p>You will be sent payment information.</p>
-  <p class="buying-info-lead">Confirm within 15 minutes:</p>
-  <ul class="buying-info-list">
-    <li>Pay at desk</li>
-    <li>Email a screenshot of bank transfer</li>
-  </ul>
-  <p>Speak to someone at the desk if you need help.</p>
+  <p>To confirm your purchase, email a screenshot of your bank transfer.</p>
 </section>
 
 <div class="filter-bar">
@@ -207,7 +202,6 @@
         <h3>Purchase this work</h3>
         <div class="purchase-options">
           <button class="btn btn-primary" id="btn-transfer" onclick="showForm('transfer')">Commit to purchase (bank transfer)</button>
-          <button class="btn btn-outline" id="btn-desk" onclick="showForm('desk')">Commit to purchase (pay at desk)</button>
         </div>
       </div>
 
@@ -228,7 +222,7 @@
         <div class="form-divider"></div>
         <div class="checkbox-group" id="transfer-checkbox-group" style="display:none">
           <input type="checkbox" id="f-commit-check">
-          <label for="f-commit-check" id="commit-label">I will confirm this purchase at the desk or by emailing confirmation of bank transfer within 15 minutes.</label>
+          <label for="f-commit-check" id="commit-label">I will confirm this purchase by emailing confirmation of bank transfer.</label>
         </div>
         <button type="submit" class="btn btn-primary" id="submit-btn">Submit commitment</button>
         <button type="button" class="form-back" onclick="showPurchaseOptions()">← Back</button>
@@ -568,14 +562,12 @@ function showPurchaseOptions() {
   document.getElementById('commit-form').classList.remove('open');
   document.getElementById('success-state').classList.remove('open');
   document.getElementById('sold-state').style.display = 'none';
-  document.getElementById('btn-desk').style.display = '';
 
   const s = currentWork?.status || 'available';
 
-  // Digital works are unlimited and sell in every mode — always show the buttons.
+  // Digital works are unlimited and sell in every mode — always show the button.
   if (s === 'digital') {
     document.getElementById('btn-transfer').textContent = 'Buy by bank transfer';
-    document.getElementById('btn-desk').textContent = 'Buy at the desk';
     return;
   }
 
@@ -605,7 +597,6 @@ function showPurchaseOptions() {
     }
     const pendPe = s === 'pending';
     document.getElementById('btn-transfer').textContent = pendPe ? 'Join waitlist — bank transfer' : 'Commit to purchase (bank transfer)';
-    document.getElementById('btn-desk').style.display = 'none';
     return;
   }
 
@@ -618,7 +609,6 @@ function showPurchaseOptions() {
   }
   const pend = s === 'pending';
   document.getElementById('btn-transfer').textContent = pend ? 'Join waitlist — bank transfer' : 'Commit to purchase (bank transfer)';
-  document.getElementById('btn-desk').textContent = pend ? 'Join waitlist — pay at desk' : 'Commit to purchase (pay at desk)';
 }
 
 function showForm(type) {
@@ -628,17 +618,17 @@ function showForm(type) {
   const isDigital = currentWork?.status === 'digital';
   const pend = currentWork?.status === 'pending';
   document.getElementById('form-title').textContent = isDigital
-    ? (type==='transfer' ? 'Buy by bank transfer' : 'Buy at the desk')
+    ? 'Buy by bank transfer'
     : pend
-      ? (type==='transfer' ? 'Join waitlist — bank transfer' : 'Join waitlist — pay at desk')
-      : (type==='transfer' ? 'Commit to purchase (bank transfer)' : 'Commit to purchase (pay at desk)');
+      ? 'Join waitlist — bank transfer'
+      : 'Commit to purchase (bank transfer)';
   const cbg = document.getElementById('transfer-checkbox-group');
   cbg.style.display = type==='transfer' ? 'flex' : 'none';
   document.getElementById('f-commit-check').required = type==='transfer';
   if (type==='transfer') {
     document.getElementById('commit-label').textContent = isDigital
       ? 'I will transfer payment within 48 hours and send proof of payment so my download can be sent.'
-      : 'I will confirm this purchase at the desk or by emailing confirmation of bank transfer within 15 minutes.';
+      : 'I will confirm this purchase by emailing confirmation of bank transfer.';
   }
   document.getElementById('submit-btn').textContent = isDigital ? 'Submit order' : 'Submit commitment';
   // VIP autofill: populate contact fields from the token, authoritatively, so it
@@ -680,12 +670,8 @@ async function submitCommit(e) {
   document.getElementById('success-body').innerHTML = !success
     ? 'There was an issue submitting. Please speak to a volunteer.'
     : isDigital
-      ? (commitType==='transfer'
-          ? `Your order for <strong>${esc(currentWork.title||'this download')}</strong> has been received, and a confirmation has been sent to your email. Please transfer payment within 48 hours and send proof of payment to the address in your confirmation email. Once it's confirmed, ${esc(currentWork.artist||'the artist')} will email your download.`
-          : `Your order for <strong>${esc(currentWork.title||'this download')}</strong> has been received, and a confirmation has been sent to your email. Pay at the sales desk, and once your payment is received, ${esc(currentWork.artist||'the artist')} will email your download.`)
-      : (commitType==='transfer'
-          ? `Your commitment for <strong>${esc(currentWork.title||'this work')}</strong> has been received. A confirmation has been sent to your email. Conners Conners will be in touch with bank details.`
-          : `Your commitment to pay at the desk for <strong>${esc(currentWork.title||'this work')}</strong> has been received. A confirmation has been sent to your email.`);
+      ? `Your order for <strong>${esc(currentWork.title||'this download')}</strong> has been received, and a confirmation has been sent to your email. Please transfer payment within 48 hours and send proof of payment to the address in your confirmation email. Once it's confirmed, ${esc(currentWork.artist||'the artist')} will email your download.`
+      : `Your commitment for <strong>${esc(currentWork.title||'this work')}</strong> has been received. A confirmation has been sent to your email. Conners Conners will be in touch with bank details.`;
   e.target.reset();
   btn.disabled=false; btn.textContent = isDigital ? 'Submit order' : 'Submit commitment';
 }
