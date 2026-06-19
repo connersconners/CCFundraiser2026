@@ -195,6 +195,9 @@
   .mode-btn-live:hover { background: var(--available-bg); }
   .mode-btn-closed { border-color: var(--danger); color: var(--danger); }
   .mode-btn-closed:hover { background: var(--danger-bg); }
+  .mode-btn-post_event { border-color: var(--pending); color: var(--pending); }
+  .mode-btn-post_event:hover { background: var(--pending-bg); }
+  .mode-badge-post_event { border-color: var(--pending); color: var(--pending); background: var(--pending-bg); }
   .schedule-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
   .schedule-row label { font-size: 11px; color: var(--mid-gray); white-space: nowrap; }
   .schedule-input { border: 1px solid var(--border); background: var(--white); padding: 6px 10px; font-family: var(--font); font-size: 12px; outline: none; flex: 1; min-width: 180px; }
@@ -249,6 +252,8 @@
   .phase-banner-browse_only .phase-banner-title { color: var(--pending); }
   .phase-banner-vip_window { background: var(--pending-bg); border-color: var(--available); color: #1d4a35; }
   .phase-banner-vip_window .phase-banner-title { color: var(--available); }
+  .phase-banner-post_event { background: var(--pending-bg); border-color: var(--pending); color: #5a3e1d; }
+  .phase-banner-post_event .phase-banner-title { color: var(--pending); }
   .phase-banner-closed { background: var(--light-gray); border-color: var(--mid-gray); color: #555; }
   .phase-banner-closed .phase-banner-title { color: var(--mid-gray); }
 
@@ -339,6 +344,7 @@
           <button class="mode-btn" onclick="setMode('browse_only')">Browse only</button>
           <button class="mode-btn" onclick="setMode('vip_window')">VIP window</button>
           <button class="mode-btn mode-btn-live" onclick="setMode('live')">Go live</button>
+          <button class="mode-btn mode-btn-post_event" onclick="setMode('post_event')">Post-event</button>
           <button class="mode-btn mode-btn-closed" onclick="setMode('closed')">Close gallery</button>
         </div>
         <div class="schedule-row">
@@ -825,6 +831,7 @@ const MODE_LABELS = {
   vip_window:  'VIP window',
   live:        'Live',
   closed:      'Closed',
+  post_event:  'Post-event',
 };
 
 function updateModeDisplay() {
@@ -846,6 +853,7 @@ function updatePhaseBanner() {
     browse_only: { title: 'Browse only', body: 'Gallery in browse-only mode. No commits possible. Sales open shortly.' },
     vip_window:  { title: 'VIP early access', body: 'Only VIPs with personal token links can commit. Public visitors can browse but not buy.' },
     closed:      { title: 'Gallery closed', body: 'Sales are closed. No commits possible.' },
+    post_event:  { title: 'Post-event', body: 'Event over. Unsold works are still buyable online by bank transfer only. No hold timer or auto-release, and buyers get event-ended messaging.' },
   };
 
   const msg = messages[galleryMode];

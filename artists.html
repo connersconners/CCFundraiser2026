@@ -240,7 +240,7 @@
         </div>
         <div class="checkbox-group" id="transfer-checkbox-group" style="display:none">
           <input type="checkbox" id="f-commit-check">
-          <label for="f-commit-check" id="commit-label">I will confirm this purchase at the desk or by email within 15 minutes.</label>
+          <label for="f-commit-check" id="commit-label">I will confirm this purchase at the desk or by emailing confirmation of bank transfer within 15 minutes.</label>
         </div>
         <button type="submit" class="btn btn-primary" id="submit-btn">Submit commitment</button>
         <button type="button" class="form-back" onclick="showPurchaseOptions()">← Back</button>
@@ -440,6 +440,9 @@ function applyGalleryMode() {
   } else if (galleryMode === 'closed') {
     banner.style.display = 'block';
     banner.textContent = 'Sales are now closed. Thank you for joining us!';
+  } else if (galleryMode === 'post_event') {
+    banner.style.display = 'block';
+    banner.textContent = 'The event has ended. You can still purchase available works online, we\'ll be in touch about payment.';
   } else {
     banner.style.display = 'none';
   }
@@ -511,6 +514,7 @@ function showPurchaseOptions() {
   document.getElementById('commit-form').classList.remove('open');
   document.getElementById('success-state').classList.remove('open');
   document.getElementById('sold-state').style.display = 'none';
+  document.getElementById('btn-desk').style.display = '';
   // Digital works are unlimited and sell in every mode — always show the buttons.
   if ((currentWork?.status) === 'digital') {
     document.getElementById('btn-transfer').textContent = 'Buy by bank transfer';
@@ -528,6 +532,15 @@ function showPurchaseOptions() {
     document.getElementById('purchase-section').style.display = 'none';
     document.getElementById('sold-state').style.display = 'block';
     document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Sales are now closed. Thank you!</p>';
+    return;
+  }
+  // Post-event: still buyable online, bank transfer only (no desk after the event)
+  if (galleryMode === 'post_event') {
+    const st = currentWork?.status || 'available';
+    if (st === 'sold') { document.getElementById('purchase-section').style.display='none'; document.getElementById('sold-state').style.display='block'; return; }
+    const pendPe = st === 'pending';
+    document.getElementById('btn-transfer').textContent = pendPe ? 'Join waitlist — bank transfer' : 'Commit to purchase (bank transfer)';
+    document.getElementById('btn-desk').style.display = 'none';
     return;
   }
   const s = currentWork?.status || 'available';
@@ -554,7 +567,7 @@ function showForm(type) {
   if (type==='transfer') {
     document.getElementById('commit-label').textContent = isDigital
       ? 'I will transfer payment within 48 hours and send proof of payment so my download can be sent.'
-      : 'I will confirm this purchase at the desk or by email within 15 minutes.';
+      : 'I will confirm this purchase at the desk or by emailing confirmation of bank transfer within 15 minutes.';
   }
   document.getElementById('submit-btn').textContent = isDigital ? 'Submit order' : 'Submit commitment';
   // VIP autofill: populate contact fields from the token, authoritatively, so it
