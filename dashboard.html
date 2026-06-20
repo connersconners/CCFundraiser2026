@@ -105,6 +105,7 @@
   .unsell-item:hover { background: var(--danger-bg); }
   .unsell-item-title { font-weight: 700; font-size: 14px; }
   .unsell-item-meta { font-size: 11px; color: var(--mid-gray); }
+  .enter-purchase-wrap { margin-bottom: 14px; }
 
   /* QUEUE */
   .queue-section h4 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 10px; }
@@ -443,6 +444,22 @@
   </div>
 </div>
 
+<!-- ENTER PURCHASE -->
+<div class="confirm-overlay" id="enter-purchase-overlay">
+  <div class="confirm-box">
+    <h3 id="ep-title">Enter purchase</h3>
+    <p style="margin-bottom:12px">Record a purchase on the buyer's behalf. They'll be sent transfer details, and the work moves to pending for you to confirm once paid.</p>
+    <div style="margin-bottom:10px"><label class="field-label">Full name</label><input class="field-input" id="ep-name" type="text" placeholder="Buyer's name"></div>
+    <div style="margin-bottom:10px"><label class="field-label">Email</label><input class="field-input" id="ep-email" type="email" placeholder="Buyer's email"></div>
+    <div style="margin-bottom:10px"><label class="field-label">Phone</label><input class="field-input" id="ep-phone" type="tel" placeholder="Buyer's phone"></div>
+    <div id="ep-error" style="display:none;color:var(--danger);font-size:12px;margin-top:6px"></div>
+    <div class="confirm-actions">
+      <button class="btn-full btn-confirm-yes" id="ep-submit" onclick="submitEnterPurchase()">Record purchase</button>
+      <button class="btn-full btn-confirm-no" onclick="closeEnterPurchase()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- QR CODE PANEL -->
 <div class="qr-overlay" id="qr-overlay">
   <div class="qr-panel">
@@ -623,6 +640,7 @@ function buildRow(w) {
       </div>
       <div class="work-row-detail">
         <div class="detail-inner">
+          ${s === 'available' ? `<div class="enter-purchase-wrap"><button class="action-btn action-btn-confirm" onclick="openEnterPurchase('${w.id}','${escA(w.title||'Untitled')}')">+ Enter purchase</button></div>` : ''}
           <div class="queue-section"><h4>Purchase queue</h4>${queueItems}</div>
         </div>
       </div>
@@ -736,6 +754,44 @@ function openUnsell() {
   document.getElementById('unsell-overlay').classList.add('open');
 }
 function closeUnsell() { document.getElementById('unsell-overlay').classList.remove('open'); }
+
+// ---- ENTER PURCHASE ----
+let epWorkId = null;
+function openEnterPurchase(workId, title) {
+  epWorkId = workId;
+  document.getElementById('ep-title').textContent = 'Enter purchase — ' + title;
+  document.getElementById('ep-name').value = '';
+  document.getElementById('ep-email').value = '';
+  document.getElementById('ep-phone').value = '';
+  document.getElementById('ep-error').style.display = 'none';
+  document.getElementById('enter-purchase-overlay').classList.add('open');
+}
+function closeEnterPurchase() { document.getElementById('enter-purchase-overlay').classList.remove('open'); }
+async function submitEnterPurchase() {
+  const name  = document.getElementById('ep-name').value.trim();
+  const email = document.getElementById('ep-email').value.trim();
+  const phone = document.getElementById('ep-phone').value.trim();
+  const err   = document.getElementById('ep-error');
+  if (!name || !email || !phone) { err.textContent = 'Name, email and phone are all required.'; err.style.display = 'block'; return; }
+  const w = allWorks.find(x => String(x.id) === String(epWorkId)) || {};
+  const payload = {
+    action: 'commitPurchase',
+    workId: epWorkId, workTitle: w.title || '', artist: w.artist || '', price: w.price || '',
+    name: name, email: email, phone: phone,
+    paymentType: 'transfer', vipToken: '', timestamp: new Date().toISOString(),
+  };
+  const btn = document.getElementById('ep-submit');
+  btn.disabled = true; btn.textContent = 'Recording…';
+  try {
+    const res = await fetch(SHEET_API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payload) });
+    const data = await res.json();
+    if (data.success) { closeEnterPurchase(); await loadWorks(); }
+    else { err.textContent = data.error || 'Could not record the purchase.'; err.style.display = 'block'; }
+  } catch(e) {
+    err.textContent = 'Network error, please try again.'; err.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Record purchase';
+}
 function unsellWork(workId, title) {
   closeUnsell();
   pendingAction = { action: 'setStatus', workId: workId, newStatus: 'available', requiresAdmin: false };
