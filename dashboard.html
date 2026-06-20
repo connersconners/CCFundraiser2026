@@ -100,6 +100,11 @@
   .status-btn-unsold { border-color: var(--danger); color: var(--danger); }
   .status-btn-unsold:hover { background: var(--danger-bg); }
   .status-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .unsell-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; margin-bottom: 16px; }
+  .unsell-item { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--danger); background: var(--white); cursor: pointer; transition: background 0.1s; font-family: var(--font); }
+  .unsell-item:hover { background: var(--danger-bg); }
+  .unsell-item-title { font-weight: 700; font-size: 14px; }
+  .unsell-item-meta { font-size: 11px; color: var(--mid-gray); }
 
   /* QUEUE */
   .queue-section h4 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 10px; }
@@ -323,6 +328,7 @@
       <option value="sold">Sold</option>
     </select>
     <button class="qr-btn" onclick="openQRPanel()">⊞ QR codes</button>
+    <button class="close-all-btn admin-only" onclick="openUnsell()">↩ Unsell a work</button>
     <button class="close-all-btn admin-only" onclick="confirmCloseAll()">⚠ Close all sales</button>
   </div>
 
@@ -421,6 +427,18 @@
     <div class="confirm-actions">
       <button class="btn-full btn-confirm-yes" id="confirm-yes-btn">Confirm</button>
       <button class="btn-full btn-confirm-no" id="confirm-no-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- UNSELL PICKER -->
+<div class="confirm-overlay" id="unsell-overlay">
+  <div class="confirm-box">
+    <h3>Unsell a work</h3>
+    <p style="margin-bottom:12px">Pick a sold work to return it to available.</p>
+    <div id="unsell-list" class="unsell-list"></div>
+    <div class="confirm-actions">
+      <button class="btn-full btn-confirm-no" onclick="closeUnsell()">Close</button>
     </div>
   </div>
 </div>
@@ -571,23 +589,6 @@ function buildRow(w) {
   }
 
   // Status buttons — show only transitions that make sense for this role
-  const canMarkAvailable = s !== 'available';
-  const canMarkPending   = s !== 'pending';
-  const requiresAdmin    = s === 'sold'; // reversing sold → anything needs admin
-
-  const statusBtns = `
-    <button class="status-btn status-btn-available"
-      data-action="${requiresAdmin ? 'adminSetStatus' : 'setStatus'}"
-      data-work-id="${w.id}" data-new-status="available"
-      ${!canMarkAvailable ? 'disabled' : ''}>
-      Mark available
-    </button>
-    <button class="status-btn status-btn-pending"
-      data-action="setStatus" data-work-id="${w.id}" data-new-status="pending"
-      ${!canMarkPending ? 'disabled' : ''}>
-      Mark pending
-    </button>`;
-
   const queueItems = qLen === 0
     ? '<p class="queue-empty">No commitments yet.</p>'
     : w.queue.map((b,i) => `
@@ -622,11 +623,6 @@ function buildRow(w) {
       </div>
       <div class="work-row-detail">
         <div class="detail-inner">
-          <div class="status-controls">
-            <h4>Status</h4>
-            <div class="status-btn-row">${statusBtns}</div>
-            ${s==='sold' && !isAdmin ? '<p style="font-size:11px;color:var(--mid-gray);margin-top:4px">Reversing a sold status requires the admin password.</p>' : ''}
-          </div>
           <div class="queue-section"><h4>Purchase queue</h4>${queueItems}</div>
         </div>
       </div>
@@ -723,6 +719,32 @@ function closeConfirm() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeConfirm(); closeQRPanel(); } });
 document.getElementById('confirm-yes-btn').addEventListener('click', executePending);
 document.getElementById('confirm-no-btn').addEventListener('click', closeConfirm);
+
+// ---- UNSELL ----
+function openUnsell() {
+  const sold = allWorks.filter(w => w.status === 'sold');
+  const list = document.getElementById('unsell-list');
+  if (!sold.length) {
+    list.innerHTML = '<p class="queue-empty">No sold works to unsell.</p>';
+  } else {
+    list.innerHTML = sold.map(w =>
+      `<button class="unsell-item" onclick="unsellWork('${w.id}','${escA(w.title||'Untitled')}')">`
+      + `<span class="unsell-item-title">${esc(w.title||'Untitled')}</span>`
+      + `<span class="unsell-item-meta">${esc(w.artist||'')}${w.id ? ' · ' + esc(w.id) : ''}</span>`
+      + `</button>`).join('');
+  }
+  document.getElementById('unsell-overlay').classList.add('open');
+}
+function closeUnsell() { document.getElementById('unsell-overlay').classList.remove('open'); }
+function unsellWork(workId, title) {
+  closeUnsell();
+  pendingAction = { action: 'setStatus', workId: workId, newStatus: 'available', requiresAdmin: false };
+  document.getElementById('confirm-title').textContent = 'Unsell ' + title + '?';
+  document.getElementById('confirm-body').textContent = 'This returns the work to available. The row already written to the Sales tab is not removed.';
+  document.getElementById('confirm-input-wrap').style.display = 'none';
+  document.getElementById('admin-pwd-error').style.display = 'none';
+  document.getElementById('confirm-overlay').classList.add('open');
+}
 
 // Delegated handler for status buttons (avoids inline onclick quote issues)
 document.getElementById('work-list') && document.addEventListener('click', e => {
