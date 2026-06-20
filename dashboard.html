@@ -573,7 +573,6 @@ function buildRow(w) {
   // Status buttons — show only transitions that make sense for this role
   const canMarkAvailable = s !== 'available';
   const canMarkPending   = s !== 'pending';
-  const canMarkSold      = s !== 'sold';
   const requiresAdmin    = s === 'sold'; // reversing sold → anything needs admin
 
   const statusBtns = `
@@ -587,11 +586,6 @@ function buildRow(w) {
       data-action="setStatus" data-work-id="${w.id}" data-new-status="pending"
       ${!canMarkPending ? 'disabled' : ''}>
       Mark pending
-    </button>
-    <button class="status-btn status-btn-sold"
-      data-action="setStatus" data-work-id="${w.id}" data-new-status="sold"
-      ${!canMarkSold ? 'disabled' : ''}>
-      Mark sold
     </button>`;
 
   const queueItems = qLen === 0
