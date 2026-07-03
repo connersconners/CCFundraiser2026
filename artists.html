@@ -28,28 +28,18 @@
   nav a:hover { color: var(--black); }
   nav a.active { color: var(--black); font-weight: 700; }
 
+  .closed-banner { background: #0a0a0a; color: #fff; padding: 12px 24px; font-size: 13px; text-align: center; }
+
   /* INTRO */
-  .intro { padding: 40px 24px 28px; border-bottom: 1px solid var(--border); }
+  .intro { padding: 40px 24px 24px; border-bottom: 1px solid var(--border); }
   .intro-eyebrow { font-size: 12px; color: var(--mid-gray); margin-bottom: 8px; }
-  .intro-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   .intro h1 { font-size: 22px; font-weight: 700; margin-bottom: 0; line-height: 1.2; }
 
-  /* BUYING INFO */
-  .buying-info { padding: 20px 24px; border-bottom: 1px solid var(--border); max-width: 600px; }
-  .buying-info p { font-size: 13px; line-height: 1.6; color: #444; }
-  .buying-info p + p { margin-top: 8px; }
-  .buying-info-lead { font-weight: 700; color: var(--black); }
-  .buying-info-list { list-style: disc; padding-left: 20px; margin: 4px 0 8px; }
-  .buying-info-list li { font-size: 13px; line-height: 1.6; color: #444; }
-
-  /* SORT CONTROL */
-  .sort-control { display: flex; align-items: center; gap: 8px; }
-  .sort-label { font-size: 11px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
-  .sort-seg { display: inline-flex; border: 1px solid var(--border); }
-  .sort-seg button { font-family: var(--font); font-size: 12px; padding: 6px 12px; background: transparent; border: none; cursor: pointer; color: var(--mid-gray); transition: all 0.1s; }
-  .sort-seg button + button { border-left: 1px solid var(--border); }
-  .sort-seg button:hover { color: var(--black); }
-  .sort-seg button.active { background: var(--black); color: var(--white); font-weight: 700; }
+  /* CLOSED NOTICE */
+  .closed-notice { padding: 20px 24px 28px; border-bottom: 1px solid var(--border); max-width: 640px; }
+  .closed-notice p { font-size: 13px; line-height: 1.7; color: #444; }
+  .closed-notice p + p { margin-top: 10px; }
+  .closed-lead { font-weight: 700; color: var(--black); font-size: 14px; }
 
   /* WORKS GRID (tile per work) */
   .works-grid {
@@ -88,30 +78,15 @@
   .work-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .work-price { font-size: 12px; font-weight: 700; }
 
-  .status-badge { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; transition: color 0.3s; white-space: nowrap; }
+  .status-badge { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; white-space: nowrap; }
   .status-available { color: var(--black); }
   .status-digital { color: var(--black); }
   .status-pending { color: var(--pending); }
   .status-sold { color: var(--sold); }
 
-  @keyframes statusFlash { 0%{opacity:0.2} 50%{opacity:1} 100%{opacity:1} }
-  .status-changed { animation: statusFlash 0.6s ease-out; }
-
-  /* MODAL */
+  /* MODAL (view only) */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
   .modal-overlay.open { display: flex; }
-
-  /* VIP welcome overlay */
-  .vip-overlay { display: none; position: fixed; inset: 0; background: var(--white); z-index: 300; align-items: center; justify-content: center; padding: 32px 24px; cursor: pointer; opacity: 0; transition: opacity 0.4s ease; }
-  .vip-overlay.open { display: flex; opacity: 1; }
-  .vip-inner { text-align: center; max-width: 440px; width: 100%; }
-  .vip-eyebrow { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 10px; }
-  .vip-welcome { font-size: 26px; font-weight: 700; line-height: 1.2; color: var(--black); margin-bottom: 28px; }
-  .vip-image { margin-bottom: 18px; }
-  .vip-image img { max-width: 100%; max-height: 46vh; object-fit: contain; display: block; margin: 0 auto; }
-  .vip-artist { font-size: 14px; font-weight: 700; color: var(--black); margin-bottom: 2px; }
-  .vip-title { font-size: 13px; color: #444; margin-bottom: 28px; }
-  .vip-tap { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mid-gray); }
   .modal { background: var(--white); max-width: 820px; width: 100%; max-height: 92vh; overflow-y: auto; display: grid; grid-template-columns: 1.1fr 1fr; position: relative; }
   @media (max-width: 600px) { .modal { grid-template-columns: 1fr; } nav a { padding: 0 10px; font-size: 12px; } }
   .modal-image-panel { background: var(--light-gray); display: flex; align-items: center; justify-content: center; min-height: 320px; }
@@ -123,34 +98,7 @@
   .modal-title { font-size: 14px; color: #444; margin-bottom: 12px; }
   .modal-meta { font-size: 12px; color: var(--mid-gray); margin-bottom: 16px; line-height: 1.7; border-top: 1px solid var(--border); padding-top: 12px; }
   .modal-price { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-  .modal-status { margin-bottom: 20px; }
-
-  .purchase-section h3 { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 10px; }
-  .purchase-options { display: flex; flex-direction: column; gap: 8px; }
-  .btn { display: block; width: 100%; padding: 11px 16px; font-family: var(--font); font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; border: 1px solid var(--black); transition: all 0.1s; text-align: center; text-decoration: none; }
-  .btn-primary { background: var(--black); color: var(--white); }
-  .btn-primary:hover { background: #333; }
-  .btn-outline { background: transparent; color: var(--black); }
-  .btn-outline:hover { background: var(--off-white); }
-  .btn-disabled { background: var(--light-gray); color: var(--mid-gray); border-color: var(--border); cursor: not-allowed; }
-  .waitlist-note { font-size: 11px; color: var(--mid-gray); text-align: center; line-height: 1.6; margin-top: 8px; }
-
-  .commit-form { display: none; flex-direction: column; gap: 12px; }
-  .commit-form.open { display: flex; }
-  .form-section-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); padding-bottom: 10px; border-bottom: 1px solid var(--border); }
-  .form-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--mid-gray); margin-bottom: 4px; display: block; }
-  .form-group { display: flex; flex-direction: column; }
-  .form-group input { border: 1px solid var(--border); padding: 9px 10px; font-family: var(--font); font-size: 13px; background: var(--white); color: var(--black); outline: none; transition: border-color 0.1s; border-radius: 0; -webkit-appearance: none; }
-  .form-group input:focus { border-color: var(--black); }
-  .checkbox-group { display: flex; gap: 10px; align-items: flex-start; }
-  .checkbox-group input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; accent-color: var(--black); width: 14px; height: 14px; }
-  .checkbox-group label { font-size: 11px; color: var(--mid-gray); line-height: 1.6; }
-  .form-back { background: none; border: none; font-size: 11px; color: var(--mid-gray); cursor: pointer; text-decoration: underline; text-align: left; padding: 0; font-family: var(--font); }
-
-  .success-state { display: none; flex-direction: column; gap: 10px; padding: 16px 0; }
-  .success-state.open { display: flex; }
-  .success-title { font-size: 15px; font-weight: 700; }
-  .success-body { font-size: 12px; color: #444; line-height: 1.6; }
+  .modal-status { margin-bottom: 4px; }
 
   .page-message { padding: 80px 24px; text-align: center; font-size: 12px; color: var(--mid-gray); text-transform: uppercase; letter-spacing: 0.06em; }
   .error-banner { display: none; background: #fff8e1; border-bottom: 1px solid #ffe082; padding: 10px 24px; font-size: 12px; color: #7a5a00; }
@@ -169,21 +117,20 @@
   </nav>
 </header>
 
+<div class="closed-banner">The 2026 fundraiser has closed. Thank you to everyone who took part.</div>
+
 <div class="error-banner" id="error-banner">
-  Unable to load works from the sheet — check your connection and refresh.
+  Unable to load works from the sheet. Check your connection and refresh.
 </div>
 
-<div id="mode-banner" style="display:none;background:#fdf3e3;border-bottom:1px solid #e8c97a;padding:12px 24px;font-size:13px;color:#7a5a00;text-align:center"></div>
-
 <section class="intro">
-  <p class="intro-eyebrow">Conners Conners Gallery — Fundraiser 2026</p>
+  <p class="intro-eyebrow">Conners Conners Gallery, Fundraiser 2026</p>
   <h1>Artists</h1>
 </section>
 
-<section class="buying-info">
-  <p>Click any work to commit to purchase.</p>
-  <p>You will be sent payment information.</p>
-  <p>To confirm your purchase, email a screenshot of your bank transfer.</p>
+<section class="closed-notice">
+  <p class="closed-lead">The 2026 fundraiser has closed.</p>
+  <p>Thank you to the artists who gave their work, and to everyone who bought a piece or came along on the night. What you raised goes straight back into keeping Conners Conners running as an artist-led, volunteer-run gallery in Fitzroy. The works below stay up as a record of who was part of it.</p>
 </section>
 
 <main id="artist-list">
@@ -195,7 +142,7 @@
   <span id="footer-year"></span>
 </footer>
 
-<!-- MODAL (identical to index.html) -->
+<!-- MODAL (view only) -->
 <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-image-panel">
@@ -210,83 +157,14 @@
       <div class="modal-meta" id="modal-meta"></div>
       <div class="modal-price" id="modal-price"></div>
       <div class="modal-status" id="modal-status"></div>
-
-      <div class="purchase-section" id="purchase-section">
-        <h3>Purchase this work</h3>
-        <div class="purchase-options">
-          <button class="btn btn-primary" id="btn-transfer" onclick="showForm('transfer')">Commit to purchase (bank transfer)</button>
-        </div>
-      </div>
-
-      <form class="commit-form" id="commit-form" onsubmit="submitCommit(event)">
-        <div class="form-section-title" id="form-title">Commit to purchase</div>
-        <div class="form-group">
-          <label class="form-label">Full name</label>
-          <input type="text" id="f-name" required placeholder="Your name">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Email</label>
-          <input type="email" id="f-email" required placeholder="your@email.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Phone</label>
-          <input type="tel" id="f-phone" required placeholder="04xx xxx xxx">
-        </div>
-        <div class="checkbox-group" id="transfer-checkbox-group" style="display:none">
-          <input type="checkbox" id="f-commit-check">
-          <label for="f-commit-check" id="commit-label">I will confirm this purchase by emailing confirmation of bank transfer.</label>
-        </div>
-        <button type="submit" class="btn btn-primary" id="submit-btn">Submit commitment</button>
-        <button type="button" class="form-back" onclick="showPurchaseOptions()">← Back</button>
-      </form>
-
-      <div class="success-state" id="success-state">
-        <div class="success-title" id="success-title">You're in the queue.</div>
-        <div class="success-body" id="success-body"></div>
-        <button class="btn btn-outline" onclick="closeModal()" style="width:auto;padding:9px 20px;margin-top:4px">Close</button>
-      </div>
-
-      <div id="sold-state" style="display:none">
-        <p class="waitlist-note">This work has been sold.</p>
-      </div>
     </div>
-  </div>
-</div>
-
-<!-- VIP welcome overlay -->
-<div class="vip-overlay" id="vip-overlay" role="dialog" aria-modal="true" aria-label="VIP welcome">
-  <div class="vip-inner">
-    <div class="vip-eyebrow">VIP access</div>
-    <div class="vip-welcome" id="vip-welcome"></div>
-    <div class="vip-image" id="vip-image"><img id="vip-img" alt=""></div>
-    <div class="vip-artist" id="vip-artist"></div>
-    <div class="vip-title" id="vip-title"></div>
-    <div class="vip-tap">Tap anywhere to enter</div>
   </div>
 </div>
 
 <script>
 const SHEET_API_URL = 'https://script.google.com/macros/s/AKfycbwm1RTBH6_pfJgPmzQApy4FbOFqQJmwVOAgpdzrS-45Yp_j88qRJyZnBeCX-5ovgaR8/exec';
-const POLL_INTERVAL = 30000;
 
-let allWorks = [], currentWork = null, commitType = '';
-let galleryMode = 'browse_only';
-
-// VIP token state (step 3, frontend token detection)
-let vipToken = '';
-let tokenValid = false;
-let vipInfo = null;
-// Detect VIP token / preview key from URL, and persist them across Works/Artists
-// navigation within the session. Read the URL first; if present, remember it;
-// otherwise fall back to what was stored earlier this session. sessionStorage is
-// per-tab and clears when the tab closes, so VIP access lasts the visit only.
-const urlParams = new URLSearchParams(window.location.search);
-const urlToken = urlParams.get('token') || '';
-if (urlToken) sessionStorage.setItem('cc_vip_token', urlToken);
-vipToken = urlToken || sessionStorage.getItem('cc_vip_token') || '';
-const urlPreview = urlParams.get('preview') || '';
-if (urlPreview) sessionStorage.setItem('cc_preview_key', urlPreview);
-const previewKey = urlPreview || sessionStorage.getItem('cc_preview_key') || '';
+let allWorks = [], currentWork = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('footer-year').textContent = new Date().getFullYear();
@@ -296,60 +174,22 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('modal-close').addEventListener('click', closeModal);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-  // VIP welcome tap-to-dismiss
-  document.getElementById('vip-overlay').addEventListener('click', dismissVip);
-  setInterval(pollStatus, POLL_INTERVAL);
 });
-
-// VIP welcome — minimal presentation of one random available work
-function maybeShowVip() {
-  if (!tokenValid || !vipInfo) return;
-  const seenKey = 'cc_vip_welcome_seen_' + vipToken;
-  if (sessionStorage.getItem(seenKey)) return;
-  document.getElementById('vip-welcome').textContent = 'Welcome, ' + (vipInfo.name || 'guest');
-
-  // Random available work that has an image
-  const pool = allWorks.filter(w => w.status === 'available' && w.imageUrl);
-  const pick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
-  const imageWrap = document.getElementById('vip-image');
-  if (pick) {
-    const img = document.getElementById('vip-img');
-    img.src = pick.imageUrl;
-    img.alt = (pick.title || 'Artwork') + (pick.artist ? ' by ' + pick.artist : '');
-    document.getElementById('vip-artist').textContent = pick.artist || 'Unknown artist';
-    document.getElementById('vip-title').textContent = pick.title || '';
-    imageWrap.style.display = 'block';
-  } else {
-    imageWrap.style.display = 'none';
-  }
-
-  document.getElementById('vip-overlay').classList.add('open');
-}
-
-function dismissVip() {
-  sessionStorage.setItem('cc_vip_welcome_seen_' + vipToken, '1');
-  document.getElementById('vip-overlay').classList.remove('open');
-}
 
 async function loadWorks() {
   try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
-    const res = await fetch(url);
+    const res = await fetch(SHEET_API_URL + '?action=getWorks');
     const data = await res.json();
     if (data.works && data.works.length > 0) {
       allWorks = data.works.filter(w => w.id && (w.artist || w.title));
-      tokenValid = data.tokenValid === true;
-      vipInfo = data.vipInfo || null;
-      if (data.mode) { galleryMode = data.mode; applyGalleryMode(); }
-      maybeShowVip();
       renderWorks();
       return;
     }
+    document.getElementById('artist-list').innerHTML = '<div class="page-message">No works found.</div>';
   } catch(e) {
     document.getElementById('error-banner').style.display = 'block';
+    document.getElementById('artist-list').innerHTML = '<div class="page-message">Works could not be loaded. Please refresh.</div>';
   }
-  allWorks = [{ id: 'w001', artist: 'Ry Haskings', title: 'Rolpanel Nova Kickback', status: 'available', imageUrl: '', price: '', representedBy: 'Conners Conners' }];
-  renderWorks();
 }
 
 // Sort helpers
@@ -405,7 +245,7 @@ function renderWorks() {
     if (!(L in seen)) { seen[L] = groups.length; groups.push({ letter: L, items: [] }); }
     groups[seen[L]].items.push(w);
   });
-  // A–Z, with '#' (no surname) last.
+  // A to Z, with '#' (no surname) last.
   groups.sort((a, b) => {
     if (a.letter === '#') return 1;
     if (b.letter === '#') return -1;
@@ -417,64 +257,6 @@ function renderWorks() {
       <div class="works-grid">${g.items.map(workTile).join('')}</div>
     </section>`
   ).join('');
-}
-
-// Phase-aware UI (step 5)
-function applyGalleryMode() {
-  const banner = document.getElementById('mode-banner');
-  if (!banner) return;
-  if (galleryMode === 'browse_only') {
-    banner.style.display = 'block';
-    banner.textContent = 'Browse mode. Purchases open at the event.';
-  } else if (galleryMode === 'vip_window') {
-    banner.style.display = 'block';
-    banner.textContent = tokenValid
-      ? 'VIP early access. Public sales open shortly.'
-      : 'Purchases open shortly. Browse the catalogue now.';
-  } else if (galleryMode === 'closed') {
-    banner.style.display = 'block';
-    banner.textContent = 'Sales are now closed. Thank you for joining us!';
-  } else if (galleryMode === 'post_event') {
-    banner.style.display = 'block';
-    banner.textContent = 'You can purchase available works by clicking on the work and submitting your details. We\'ll contact you to organise payment.';
-  } else {
-    banner.style.display = 'none';
-  }
-}
-
-// Live polling — same logic as index.html
-async function pollStatus() {
-  try {
-    const url = SHEET_API_URL + '?action=getWorks' + (vipToken ? '&token=' + encodeURIComponent(vipToken) : '') + (previewKey ? '&preview=' + encodeURIComponent(previewKey) : '');
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.works) return;
-    // Re-validate token on every poll (curator may have revoked mid-session)
-    tokenValid = data.tokenValid === true;
-    vipInfo = data.vipInfo || null;
-    if (data.mode && data.mode !== galleryMode) { galleryMode = data.mode; applyGalleryMode(); renderWorks(); }
-    const fresh = data.works.filter(w => w.id && (w.artist || w.title));
-    fresh.forEach(fw => {
-      const existing = allWorks.find(w => w.id === fw.id);
-      if (!existing || existing.status === fw.status) return;
-      existing.status = fw.status;
-      document.querySelectorAll(`[data-work-id="${fw.id}"] .status-badge`).forEach(badge => {
-        badge.className = `status-badge status-${fw.status}`;
-        badge.textContent = statusLabel(fw.status);
-        badge.classList.add('status-changed');
-        setTimeout(() => badge.classList.remove('status-changed'), 700);
-      });
-      if (currentWork && currentWork.id === fw.id) {
-        currentWork.status = fw.status;
-        document.getElementById('modal-status').innerHTML = `<span class="status-badge status-${fw.status}">${statusLabel(fw.status)}</span>`;
-        if (fw.status === 'sold') {
-          document.getElementById('purchase-section').style.display = 'none';
-          document.getElementById('commit-form').classList.remove('open');
-          document.getElementById('sold-state').style.display = 'block';
-        }
-      }
-    });
-  } catch(e) {}
 }
 
 function openWork(id) {
@@ -492,7 +274,6 @@ function openWork(id) {
   document.getElementById('modal-meta').innerHTML = [currentWork.medium, currentWork.dimensions, currentWork.year].filter(Boolean).join('<br>');
   document.getElementById('modal-price').textContent = currentWork.price ? '$'+Number(currentWork.price).toLocaleString() : '';
   document.getElementById('modal-status').innerHTML = `<span class="status-badge status-${currentWork.status||'available'}">${statusLabel(currentWork.status)}</span>`;
-  showPurchaseOptions();
   document.getElementById('modal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -501,107 +282,6 @@ function closeModal() {
   document.getElementById('modal-overlay').classList.remove('open');
   document.body.style.overflow = '';
   currentWork = null;
-}
-
-function showPurchaseOptions() {
-  document.getElementById('purchase-section').style.display = 'block';
-  document.getElementById('commit-form').classList.remove('open');
-  document.getElementById('success-state').classList.remove('open');
-  document.getElementById('sold-state').style.display = 'none';
-  // Digital works are unlimited and sell in every mode — always show the button.
-  if ((currentWork?.status) === 'digital') {
-    document.getElementById('btn-transfer').textContent = 'Buy by bank transfer';
-    return;
-  }
-  // Phase-aware: hide commit during browse_only or vip_window-for-public (step 5)
-  if (galleryMode === 'browse_only' || (galleryMode === 'vip_window' && !tokenValid)) {
-    document.getElementById('purchase-section').style.display = 'none';
-    document.getElementById('sold-state').style.display = 'block';
-    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Purchases open at the event. See you there!</p>';
-    return;
-  }
-  if (galleryMode === 'closed') {
-    document.getElementById('purchase-section').style.display = 'none';
-    document.getElementById('sold-state').style.display = 'block';
-    document.getElementById('sold-state').innerHTML = '<p style="color:var(--mid-gray);font-size:13px">Sales are now closed. Thank you!</p>';
-    return;
-  }
-  // Post-event: still buyable online, bank transfer only (no desk after the event)
-  if (galleryMode === 'post_event') {
-    const st = currentWork?.status || 'available';
-    if (st === 'sold') { document.getElementById('purchase-section').style.display='none'; document.getElementById('sold-state').style.display='block'; return; }
-    const pendPe = st === 'pending';
-    document.getElementById('btn-transfer').textContent = pendPe ? 'Join waitlist — bank transfer' : 'Commit to purchase (bank transfer)';
-    return;
-  }
-  const s = currentWork?.status || 'available';
-  if (s === 'sold') { document.getElementById('purchase-section').style.display='none'; document.getElementById('sold-state').style.display='block'; return; }
-  const pend = s === 'pending';
-  document.getElementById('btn-transfer').textContent = pend ? 'Join waitlist — bank transfer' : 'Commit to purchase (bank transfer)';
-}
-
-function showForm(type) {
-  commitType = type;
-  document.getElementById('purchase-section').style.display = 'none';
-  document.getElementById('commit-form').classList.add('open');
-  const isDigital = currentWork?.status === 'digital';
-  const pend = currentWork?.status === 'pending';
-  document.getElementById('form-title').textContent = isDigital
-    ? 'Buy by bank transfer'
-    : pend
-      ? 'Join waitlist — bank transfer'
-      : 'Commit to purchase (bank transfer)';
-  const cbg = document.getElementById('transfer-checkbox-group');
-  cbg.style.display = type==='transfer' ? 'flex' : 'none';
-  document.getElementById('f-commit-check').required = type==='transfer';
-  if (type==='transfer') {
-    document.getElementById('commit-label').textContent = isDigital
-      ? 'I will transfer payment within 48 hours and send proof of payment so my download can be sent.'
-      : 'I will confirm this purchase by emailing confirmation of bank transfer.';
-  }
-  document.getElementById('submit-btn').textContent = isDigital ? 'Submit order' : 'Submit commitment';
-  // VIP autofill: populate contact fields from the token, authoritatively, so it
-  // overrides any browser-autofilled guess. Empty token fields are left as-is for
-  // manual entry (phone is still required).
-  if (vipInfo) {
-    const fill = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
-    fill('f-name', vipInfo.name);
-    fill('f-email', vipInfo.email);
-    fill('f-phone', vipInfo.phone);
-  }
-}
-
-async function submitCommit(e) {
-  e.preventDefault();
-  const btn = document.getElementById('submit-btn');
-  btn.textContent = 'Submitting…'; btn.disabled = true;
-  const payload = {
-    action: 'commitPurchase',
-    workId: currentWork.id, workTitle: currentWork.title, artist: currentWork.artist, price: currentWork.price,
-    name: document.getElementById('f-name').value.trim(),
-    email: document.getElementById('f-email').value.trim(),
-    phone: document.getElementById('f-phone').value.trim(),
-    paymentType: commitType,
-    vipToken: vipToken, // step 6: pass token for attribution
-    timestamp: new Date().toISOString(),
-  };
-  let success = false;
-  try {
-    const res = await fetch(SHEET_API_URL, { method:'POST', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) });
-    const data = await res.json();
-    success = data.success;
-    if (data.works) { allWorks = data.works.filter(w => w.id && (w.artist||w.title)); renderWorks(); }
-  } catch(err) { console.error(err); }
-  document.getElementById('commit-form').classList.remove('open');
-  document.getElementById('success-state').classList.add('open');
-  const isDigital = currentWork?.status === 'digital';
-  document.getElementById('success-title').textContent = !success ? 'Something went wrong' : (isDigital ? 'Order received.' : "You're in the queue.");
-  document.getElementById('success-body').innerHTML = !success
-    ? 'There was an issue submitting. Please speak to a volunteer.'
-    : isDigital
-      ? `Your order for <strong>${esc(currentWork.title||'this download')}</strong> has been received, and a confirmation has been sent to your email. Please transfer payment within 48 hours and send proof of payment to the address in your confirmation email. Once it's confirmed, ${esc(currentWork.artist||'the artist')} will email your download.`
-      : `Your commitment for <strong>${esc(currentWork.title||'this work')}</strong> has been received. Conners Conners will be in touch with bank details.`;
-  e.target.reset(); btn.disabled=false; btn.textContent = isDigital ? 'Submit order' : 'Submit commitment';
 }
 
 function statusLabel(s) { return s==='sold'?'Sold':s==='pending'?'Pending':'Available'; }
