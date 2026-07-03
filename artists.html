@@ -79,9 +79,7 @@
   .work-price { font-size: 12px; font-weight: 700; }
 
   .status-badge { font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; white-space: nowrap; }
-  .status-available { color: var(--black); }
-  .status-digital { color: var(--black); }
-  .status-pending { color: var(--pending); }
+  .status-unsold { color: var(--black); }
   .status-sold { color: var(--sold); }
 
   /* MODAL (view only) */
@@ -117,7 +115,7 @@
   </nav>
 </header>
 
-<div class="closed-banner">The 2026 fundraiser has closed. Thank you to everyone who took part.</div>
+<div class="closed-banner">The 2026 fundraiser has closed.</div>
 
 <div class="error-banner" id="error-banner">
   Unable to load works from the sheet. Check your connection and refresh.
@@ -214,7 +212,7 @@ function workTile(w) {
         <div class="work-title">${esc(w.title||'Untitled')}</div>
         <div class="work-footer">
           <span class="work-price">${w.price ? '$'+Number(w.price).toLocaleString() : ''}</span>
-          <span class="status-badge status-${w.status||'available'}">${statusLabel(w.status)}</span>
+          <span class="status-badge status-${statusClass(w.status)}">${statusLabel(w.status)}</span>
         </div>
       </div>
     </div>`;
@@ -273,7 +271,7 @@ function openWork(id) {
   document.getElementById('modal-title').textContent = currentWork.title||'Untitled';
   document.getElementById('modal-meta').innerHTML = [currentWork.medium, currentWork.dimensions, currentWork.year].filter(Boolean).join('<br>');
   document.getElementById('modal-price').textContent = currentWork.price ? '$'+Number(currentWork.price).toLocaleString() : '';
-  document.getElementById('modal-status').innerHTML = `<span class="status-badge status-${currentWork.status||'available'}">${statusLabel(currentWork.status)}</span>`;
+  document.getElementById('modal-status').innerHTML = `<span class="status-badge status-${statusClass(currentWork.status)}">${statusLabel(currentWork.status)}</span>`;
   document.getElementById('modal-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -284,7 +282,8 @@ function closeModal() {
   currentWork = null;
 }
 
-function statusLabel(s) { return s==='sold'?'Sold':s==='pending'?'Pending':'Available'; }
+function statusLabel(s) { return s==='sold' ? 'Sold' : 'Unsold'; }
+function statusClass(s) { return s==='sold' ? 'sold' : 'unsold'; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 </script>
 </body>
